@@ -94,61 +94,152 @@ export function FloatingToolbar({ onFormat, onColorChange }: FloatingToolbarProp
     }
 
     const applyColorToSelection = (color: string): Range | null => {
+        console.log('[FloatingToolbar] applyColorToSelection called with color:', color);
         const sel = window.getSelection();
         let range: Range | null = null;
 
+        // Get or restore selection
         if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
             range = sel.getRangeAt(0).cloneRange();
+            console.log('[FloatingToolbar] Got range from active selection');
         } else if (selectionRef.current && sel) {
             range = selectionRef.current.cloneRange();
             sel.removeAllRanges();
             sel.addRange(range);
-        } else {
+            console.log('[FloatingToolbar] Restored range from selectionRef');
+        }
+
+        if (!range) {
+            console.log('[FloatingToolbar] No range available, returning null');
             return null;
         }
 
-        if (!range) return null;
+        // Find the contenteditable container
+        const container = range.commonAncestorContainer;
+        const editableParent = (container instanceof HTMLElement ? container : container.parentElement)
+            ?.closest('[contenteditable="true"]') as HTMLElement | null;
+        if (!editableParent) {
+            console.log('[FloatingToolbar] No contenteditable parent found');
+            return null;
+        }
+        console.log('[FloatingToolbar] Found contenteditable parent:', editableParent);
 
+        // Save the original selection boundaries before any DOM manipulation
+        const startContainer = range.startContainer;
+        const startOffset = range.startOffset;
+        const endContainer = range.endContainer;
+        const endOffset = range.endOffset;
+
+        console.log('[FloatingToolbar] Selection boundaries:', {
+            startContainer,
+            startOffset,
+            endContainer,
+            endOffset,
+            selectedText: range.toString()
+        });
+
+        // Step 1: Remove existing color spans that intersect the selection
+        const colorSpans = Array.from(editableParent.querySelectorAll('.rt-color'));
+        console.log('[FloatingToolbar] Found', colorSpans.length, 'existing color spans');
+        for (const span of colorSpans) {
+            if (range.intersectsNode(span)) {
+                console.log('[FloatingToolbar] Unwrapping color span:', span);
+                const parent = span.parentNode;
+                if (parent) {
+                    // Move all children out of the span
+                    while (span.firstChild) {
+                        parent.insertBefore(span.firstChild, span);
+                    }
+                    parent.removeChild(span);
+                }
+            }
+        }
+
+        // Normalize to merge adjacent text nodes
+        editableParent.normalize();
+
+        // Recreate the range using the saved boundaries
+        try {
+            const newRange = document.createRange();
+            newRange.setStart(startContainer, startOffset);
+            newRange.setEnd(endContainer, endOffset);
+            range = newRange;
+            console.log('[FloatingToolbar] Recreated range after unwrapping');
+        } catch (e) {
+            console.log('[FloatingToolbar] Failed to recreate range:', e);
+            // Try to use selectionRef as fallback
+            if (selectionRef.current) {
+                range = selectionRef.current.cloneRange();
+                console.log('[FloatingToolbar] Using selectionRef as fallback');
+            } else {
+                return null;
+            }
+        }
+
+        // If color is "default", we're done - just unwrapping was the goal
+        if (color === 'default') {
+            console.log('[FloatingToolbar] Color is default, done unwrapping');
+            const finalSel = window.getSelection();
+            if (finalSel) {
+                finalSel.removeAllRanges();
+                finalSel.addRange(range);
+            }
+            selectionRef.current = range.cloneRange();
+            return range;
+        }
+        console.log('[FloatingToolbar] Re-got range after normalization');
+
+        // Step 3: Wrap selection in new color span
         const span = document.createElement('span');
         span.className = 'rt-color';
-        if (color !== 'default') {
-            span.classList.add(`rt-color-${color}`);
-            // Inline styles ensure immediate visual feedback
-            if (color.endsWith('_background')) {
-                span.style.backgroundColor = COLOR_VALUES[color];
-            } else {
-                span.style.color = COLOR_VALUES[color];
-            }
-        } else {
-            span.style.color = '';
-            span.style.backgroundColor = '';
-        }
+        span.classList.add(`rt-color-${color}`);
         span.setAttribute('data-color', color);
+
+        // Set inline style for immediate visual feedback
+        if (color.endsWith('_background')) {
+            span.style.backgroundColor = COLOR_VALUES[color];
+            console.log('[FloatingToolbar] Applied background color:', COLOR_VALUES[color]);
+        } else {
+            span.style.color = COLOR_VALUES[color];
+            console.log('[FloatingToolbar] Applied text color:', COLOR_VALUES[color]);
+        }
 
         try {
             range.surroundContents(span);
-        } catch {
+            console.log('[FloatingToolbar] Successfully wrapped with surroundContents');
+        } catch (e) {
+            console.log('[FloatingToolbar] surroundContents failed, using fallback:', e);
+            // If surroundContents fails (partial selection across elements)
             const contents = range.extractContents();
             span.appendChild(contents);
             range.insertNode(span);
             range.selectNodeContents(span);
+            console.log('[FloatingToolbar] Applied color with fallback method');
         }
 
-        // Keep selection and cached range in sync after DOM changes
+        console.log('[FloatingToolbar] Created color span:', span);
+
+        // Update selection to the new span contents
         const finalSel = window.getSelection();
         if (finalSel) {
             finalSel.removeAllRanges();
             finalSel.addRange(range);
         }
         selectionRef.current = range.cloneRange();
+
+        console.log('[FloatingToolbar] Color application complete, returning range');
         return range;
     };
 
     const handleColorSelect = (color: string) => {
+        console.log('[FloatingToolbar] handleColorSelect called with:', color);
         const usedRange = applyColorToSelection(color);
+        console.log('[FloatingToolbar] applyColorToSelection returned:', usedRange);
         setShowTextColorMenu(false);
         setShowBgColorMenu(false);
+        console.log('[FloatingToolbar] Calling onColorChange with range:', usedRange ?? selectionRef.current);
         onColorChange?.(usedRange ?? selectionRef.current);
+        console.log('[FloatingToolbar] handleColorSelect complete');
     };
 
     const handleClick = (format: string) => (e: React.MouseEvent) => {
@@ -211,9 +302,13 @@ export function FloatingToolbar({ onFormat, onColorChange }: FloatingToolbarProp
                 className="floating-toolbar-btn"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={(e) => {
+                    console.log('[FloatingToolbar] Text color button clicked');
                     e.preventDefault();
                     e.stopPropagation();
-                    setShowTextColorMenu((v) => !v);
+                    setShowTextColorMenu((v) => {
+                        console.log('[FloatingToolbar] Toggle text color menu, was:', v, 'will be:', !v);
+                        return !v;
+                    });
                     setShowBgColorMenu(false);
                 }}
                 title="Text color"
@@ -242,8 +337,12 @@ export function FloatingToolbar({ onFormat, onColorChange }: FloatingToolbarProp
                                 <button
                                     key={c}
                                     className="floating-toolbar-color-swatch"
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => handleColorSelect(c)}
+                                    onMouseDown={(e) => {
+                                        console.log('[FloatingToolbar] Color swatch mousedown:', c);
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleColorSelect(c);
+                                    }}
                                     data-color={c}
                                 >
                                     <span className={`rt-color ${c !== 'default' ? `rt-color-${c}` : ''}`}>
@@ -264,8 +363,12 @@ export function FloatingToolbar({ onFormat, onColorChange }: FloatingToolbarProp
                                 <button
                                     key={c}
                                     className="floating-toolbar-color-swatch"
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => handleColorSelect(c)}
+                                    onMouseDown={(e) => {
+                                        console.log('[FloatingToolbar] BG color swatch mousedown:', c);
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleColorSelect(c);
+                                    }}
                                     data-color={c}
                                 >
                                     <span className={`rt-color ${c !== 'default' ? `rt-color-${c}` : ''}`}>
