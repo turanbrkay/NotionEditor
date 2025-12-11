@@ -298,6 +298,16 @@ body {
   transition: opacity var(--transition-fast);
 }
 
+.block-wrapper--selected {
+  background: rgba(45, 170, 219, 0.08);
+  border-left: 3px solid var(--color-accent);
+  padding-left: calc(var(--block-padding-x) + 2px);
+}
+
+.block-wrapper--selected .block-handle {
+  opacity: 0.6;
+}
+
 /* Handle can still have its own hover effect */
 .block-handle:hover {
   opacity: 0.8 !important;

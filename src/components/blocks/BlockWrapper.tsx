@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { usePage } from '../../context/PageContext';
 import type { EditorBlock } from '../../types/types';
 
 interface BlockWrapperProps {
@@ -8,6 +9,13 @@ interface BlockWrapperProps {
 
 export function BlockWrapper({ block, children }: BlockWrapperProps) {
     const [isHovered, setIsHovered] = useState(false);
+    const {
+        selectedBlockIds,
+        setSelectedBlocks,
+        selectBlockRange,
+        clearSelectedBlocks,
+    } = usePage();
+    const isSelected = selectedBlockIds.includes(block.id);
 
     // Only trigger hover when mouse enters THIS element directly, not from children
     const handleMouseEnter = useCallback((e: React.MouseEvent) => {
@@ -48,18 +56,36 @@ export function BlockWrapper({ block, children }: BlockWrapperProps) {
         setIsHovered(false);
     }, []);
 
+    const handleHandleMouseDown = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.shiftKey) {
+            selectBlockRange(block.id);
+        } else {
+            setSelectedBlocks([block.id]);
+        }
+    }, [block.id, selectBlockRange, setSelectedBlocks]);
+
+    const handleBlockMainMouseDown = useCallback(() => {
+        if (selectedBlockIds.length > 0) {
+            clearSelectedBlocks();
+        }
+    }, [clearSelectedBlocks, selectedBlockIds.length]);
+
     return (
         <div
-            className={`block-wrapper ${isHovered ? 'block-wrapper--hovered' : ''}`}
+            className={`block-wrapper ${isHovered ? 'block-wrapper--hovered' : ''} ${isSelected ? 'block-wrapper--selected' : ''}`}
             data-block-id={block.id}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
+            aria-selected={isSelected}
         >
             {/* Drag handle - visible based on isHovered state */}
             <div
                 className="block-handle"
                 title="Drag to reorder"
                 style={{ opacity: isHovered ? 0.4 : 0 }}
+                onMouseDown={handleHandleMouseDown}
             >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
                     <circle cx="4" cy="3" r="1.5" />
@@ -76,6 +102,7 @@ export function BlockWrapper({ block, children }: BlockWrapperProps) {
                 className="block-main"
                 onMouseEnter={handleBlockMainEnter}
                 onMouseLeave={handleBlockMainLeave}
+                onMouseDown={handleBlockMainMouseDown}
             >
                 {children}
             </div>

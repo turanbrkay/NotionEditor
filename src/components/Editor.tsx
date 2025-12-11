@@ -1,13 +1,71 @@
+import { useCallback, useEffect } from 'react';
 import { usePage } from '../context/PageContext';
 import { serializeRichTextFromElement } from '../utils/blocks';
+import {
+    INTERNAL_CLIPBOARD_MIME,
+    blocksToPlainText,
+    buildClipboardPayload,
+    collectSelectedBlocks,
+    parseClipboardPayload,
+    serializeClipboardPayload,
+} from '../utils/clipboard';
 import { PageTitle } from './PageTitle';
 import { Toolbar } from './Toolbar';
 import { FloatingToolbar } from './FloatingToolbar';
 import { BlockRenderer } from './blocks/BlockRenderer';
 
 export function Editor() {
-    const { page, updateBlock } = usePage();
+    const {
+        page,
+        updateBlock,
+        selectedBlockIds,
+        clearSelectedBlocks,
+        selectAllBlocks,
+        deleteBlocksById,
+        insertBlocksAfter,
+        setFocusBlock,
+    } = usePage();
     const blocks = page.blocks;
+
+    const getOrderedSelection = useCallback(() => {
+        if (!selectedBlockIds.length) return [];
+        return collectSelectedBlocks(blocks, new Set(selectedBlockIds));
+    }, [blocks, selectedBlockIds]);
+
+    const deleteSelectedBlocks = useCallback(() => {
+        if (selectedBlockIds.length === 0) return;
+        deleteBlocksById(selectedBlockIds);
+    }, [deleteBlocksById, selectedBlockIds]);
+
+    const copySelectedBlocksToClipboard = useCallback((clipboard: DataTransfer | null): boolean => {
+        if (!clipboard) return false;
+        const ordered = getOrderedSelection();
+        if (ordered.length === 0) return false;
+        const payload = buildClipboardPayload(ordered);
+        clipboard.setData('text/plain', blocksToPlainText(ordered));
+        clipboard.setData('application/json', JSON.stringify(payload.notion));
+        clipboard.setData(INTERNAL_CLIPBOARD_MIME, serializeClipboardPayload(payload));
+        return true;
+    }, [getOrderedSelection]);
+
+    const getInsertionTargetId = useCallback((eventTarget: EventTarget | null): string | null => {
+        if (selectedBlockIds.length > 0) {
+            const ordered = getOrderedSelection();
+            return ordered[ordered.length - 1]?.id ?? null;
+        }
+
+        const nodeTarget = eventTarget as Node | null;
+        const targetFromNode = nodeTarget ? getClosestBlockId(nodeTarget) : null;
+        if (targetFromNode) return targetFromNode;
+
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+            const rangeTarget = getClosestBlockId(selection.getRangeAt(0).startContainer);
+            if (rangeTarget) return rangeTarget;
+        }
+
+        return blocks[blocks.length - 1]?.id ?? null;
+    }, [blocks, getOrderedSelection, selectedBlockIds.length]);
 
     const persistSelectionToState = (range?: Range | null) => {
         const selection = window.getSelection();
@@ -89,6 +147,136 @@ export function Editor() {
         }
     };
 
+    const isFullBlockSelection = useCallback(() => {
+        const activeElement = document.activeElement;
+        if (activeElement instanceof HTMLTextAreaElement) {
+            return activeElement.selectionStart === 0
+                && activeElement.selectionEnd === activeElement.value.length;
+        }
+
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+            return false;
+        }
+
+        const range = selection.getRangeAt(0);
+        const startBlock = getClosestBlockId(range.startContainer);
+        const endBlock = getClosestBlockId(range.endContainer);
+        if (!startBlock || startBlock !== endBlock) return false;
+
+        const editable = getEditableAncestor(range.startContainer);
+        if (!editable) return false;
+
+        const fullRange = document.createRange();
+        fullRange.selectNodeContents(editable);
+        return (
+            range.compareBoundaryPoints(Range.START_TO_START, fullRange) <= 0
+            && range.compareBoundaryPoints(Range.END_TO_END, fullRange) >= 0
+        );
+    }, []);
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            const meta = e.metaKey || e.ctrlKey;
+
+            if (selectedBlockIds.length > 0) {
+                if (e.key === 'Backspace' || e.key === 'Delete') {
+                    e.preventDefault();
+                    deleteSelectedBlocks();
+                    return;
+                }
+                if (meta && e.key.toLowerCase() === 'a') {
+                    e.preventDefault();
+                    selectAllBlocks();
+                    return;
+                }
+                if (e.key === 'Escape') {
+                    clearSelectedBlocks();
+                    return;
+                }
+            } else {
+                if (e.key === 'Escape') {
+                    clearSelectedBlocks();
+                    return;
+                }
+
+                if (meta && e.key.toLowerCase() === 'a' && isFullBlockSelection()) {
+                    e.preventDefault();
+                    selectAllBlocks();
+                    return;
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [clearSelectedBlocks, deleteSelectedBlocks, isFullBlockSelection, selectAllBlocks, selectedBlockIds.length]);
+
+    useEffect(() => {
+        const handleCopy = (e: ClipboardEvent) => {
+            if (!selectedBlockIds.length) return;
+            const success = copySelectedBlocksToClipboard(e.clipboardData);
+            if (success) {
+                e.preventDefault();
+            }
+        };
+
+        const handleCut = (e: ClipboardEvent) => {
+            if (!selectedBlockIds.length) return;
+            const success = copySelectedBlocksToClipboard(e.clipboardData);
+            if (success) {
+                e.preventDefault();
+                deleteSelectedBlocks();
+            }
+        };
+
+        const handlePaste = (e: ClipboardEvent) => {
+            const raw = e.clipboardData?.getData(INTERNAL_CLIPBOARD_MIME) || null;
+            const payload = parseClipboardPayload(raw);
+            if (!payload) return;
+            e.preventDefault();
+
+            const targetId = getInsertionTargetId(e.target);
+            const insertedIds = insertBlocksAfter(targetId, payload.blocks);
+            clearSelectedBlocks();
+            if (insertedIds.length > 0) {
+                setFocusBlock(insertedIds[0]);
+            }
+        };
+
+        const handleMouseDown = (e: MouseEvent) => {
+            if (!selectedBlockIds.length) return;
+            const target = e.target as HTMLElement | null;
+            if (!target) return;
+            if (target.closest('.block-handle')) return;
+            const insideWrapper = target.closest('.block-wrapper');
+            const insideEditable = target.closest('[contenteditable="true"]') || target.closest('textarea');
+            if (!insideWrapper || insideEditable) {
+                clearSelectedBlocks();
+            }
+        };
+
+        window.addEventListener('copy', handleCopy);
+        window.addEventListener('cut', handleCut);
+        window.addEventListener('paste', handlePaste);
+        window.addEventListener('mousedown', handleMouseDown);
+
+        return () => {
+            window.removeEventListener('copy', handleCopy);
+            window.removeEventListener('cut', handleCut);
+            window.removeEventListener('paste', handlePaste);
+            window.removeEventListener('mousedown', handleMouseDown);
+        };
+    }, [
+        clearSelectedBlocks,
+        copySelectedBlocksToClipboard,
+        deleteSelectedBlocks,
+        getInsertionTargetId,
+        insertBlocksAfter,
+        selectedBlockIds.length,
+        setFocusBlock,
+    ]);
+
     return (
         <div className="page-container">
             <div className="page-content">
@@ -116,4 +304,9 @@ function getClosestBlockId(node: Node): string | null {
     const element = node instanceof HTMLElement ? node : node.parentElement;
     const wrapper = element?.closest('[data-block-id]');
     return wrapper ? wrapper.getAttribute('data-block-id') : null;
+}
+
+function getEditableAncestor(node: Node): HTMLElement | null {
+    const element = node instanceof HTMLElement ? node : node.parentElement;
+    return element?.closest?.('[contenteditable="true"]') || null;
 }

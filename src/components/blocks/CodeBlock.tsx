@@ -9,25 +9,31 @@ interface CodeBlockProps {
 
 // Simple C++ syntax highlighting
 function highlightCpp(code: string): string {
+    const applyToText = (input: string, regex: RegExp, replacer: string) =>
+        input
+            .split(/(<[^>]+>)/g)
+            .map((part) => (part.startsWith('<') ? part : part.replace(regex, replacer)))
+            .join('');
+
     let html = code
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
 
-    html = html.replace(/(\/\/[^\n]*)/g, '<span class="comment">$1</span>');
-    html = html.replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="comment">$1</span>');
-    html = html.replace(/(#\w+)/g, '<span class="preprocessor">$1</span>');
-    html = html.replace(/("(?:[^"\\]|\\.)*")/g, '<span class="string">$1</span>');
-    html = html.replace(/('(?:[^'\\]|\\.)')/g, '<span class="string">$1</span>');
+    html = applyToText(html, /("(?:[^"\\]|\\.)*")/g, '<span class="string">$1</span>');
+    html = applyToText(html, /('(?:[^'\\]|\\.)')/g, '<span class="string">$1</span>');
+    html = applyToText(html, /(\/\/[^\n]*)/g, '<span class="comment">$1</span>');
+    html = applyToText(html, /(\/\*[\s\S]*?\*\/)/g, '<span class="comment">$1</span>');
+    html = applyToText(html, /(#\w+)/g, '<span class="preprocessor">$1</span>');
 
     const keywords = /\b(int|void|char|double|float|bool|long|short|unsigned|signed|const|static|extern|inline|virtual|override|public|private|protected|class|struct|enum|union|typedef|typename|template|namespace|using|new|delete|return|if|else|for|while|do|switch|case|break|continue|default|try|catch|throw|nullptr|true|false|this|sizeof|auto|decltype|constexpr|noexcept|explicit|friend|mutable|volatile|register)\b/g;
-    html = html.replace(keywords, '<span class="keyword">$1</span>');
+    html = applyToText(html, keywords, '<span class="keyword">$1</span>');
 
     const types = /\b(std|string|vector|map|set|list|deque|array|pair|tuple|unique_ptr|shared_ptr|weak_ptr|optional|variant|any|function|iostream|fstream|sstream|stringstream|ostream|istream|cout|cin|cerr|endl|size_t|ptrdiff_t|int8_t|int16_t|int32_t|int64_t|uint8_t|uint16_t|uint32_t|uint64_t)\b/g;
-    html = html.replace(types, '<span class="type">$1</span>');
+    html = applyToText(html, types, '<span class="type">$1</span>');
 
-    html = html.replace(/\b(\d+\.?\d*[fFlL]?)\b/g, '<span class="number">$1</span>');
-    html = html.replace(/\b([a-zA-Z_]\w*)\s*(?=\()/g, '<span class="function">$1</span>');
+    html = applyToText(html, /\b(\d+\.?\d*[fFlL]?)\b/g, '<span class="number">$1</span>');
+    html = applyToText(html, /\b([a-zA-Z_]\w*)\s*(?=\()/g, '<span class="function">$1</span>');
 
     return html;
 }

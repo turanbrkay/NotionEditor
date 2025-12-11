@@ -8,7 +8,7 @@ import React, {
 } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { BlockType, EditorBlock, Page } from '../types/types';
-import { createBlock } from '../utils/blocks';
+import { cloneBlockWithNewIds, createBlock } from '../utils/blocks';
 import { debounce, loadWorkspace, saveWorkspace } from '../utils/storage';
 import type { WorkspaceState } from '../utils/storage';
 
@@ -33,6 +33,11 @@ interface PageContextValue {
     focusPosition: 'start' | 'end' | null;
     clearFocusBlock: () => void;
     setFocusBlock: (id: string) => void;
+    selectedBlockIds: string[];
+    setSelectedBlocks: (ids: string[]) => void;
+    selectBlockRange: (targetId: string) => void;
+    clearSelectedBlocks: () => void;
+    selectAllBlocks: () => void;
     // Page operations
     setTitle: (title: string) => void;
     // Block CRUD
@@ -40,6 +45,8 @@ interface PageContextValue {
     addBlockBefore: (type: BlockType, beforeId: string) => string;
     updateBlock: (id: string, updates: Partial<EditorBlock>) => void;
     deleteBlock: (id: string) => void;
+    deleteBlocksById: (ids: string[]) => void;
+    insertBlocksAfter: (targetId: string | null, blocks: EditorBlock[]) => string[];
     // Block reordering
     moveBlockUp: (id: string) => void;
     moveBlockDown: (id: string) => void;
@@ -96,6 +103,37 @@ function findBlockAndParent(
 }
 
 /**
+ * Flatten a block tree into document order (preorder)
+ */
+function flattenBlocks(blocks: EditorBlock[]): EditorBlock[] {
+    const result: EditorBlock[] = [];
+    const walk = (nodes: EditorBlock[]) => {
+        for (const blk of nodes) {
+            result.push(blk);
+            if (blk.children?.length) {
+                walk(blk.children);
+            }
+        }
+    };
+    walk(blocks);
+    return result;
+}
+
+/**
+ * Delete a set of blocks (by id) from the tree
+ */
+function deleteBlocksFromTreeSet(blocks: EditorBlock[], ids: Set<string>): EditorBlock[] {
+    return blocks
+        .filter((block) => !ids.has(block.id))
+        .map((block) => {
+            if (block.children?.length) {
+                return { ...block, children: deleteBlocksFromTreeSet(block.children, ids) };
+            }
+            return block;
+        });
+}
+
+/**
  * Insert a block after another in a nested structure (immutably)
  */
 function insertBlockAfterInTree(
@@ -120,6 +158,35 @@ function insertBlockAfterInTree(
         }
         return block;
     });
+}
+
+/**
+ * Insert multiple blocks after a given id (or append if no id)
+ */
+function insertBlocksAfterInTree(
+    blocks: EditorBlock[],
+    targetId: string | null,
+    newBlocks: EditorBlock[]
+): EditorBlock[] {
+    if (!targetId) {
+        return [...blocks, ...newBlocks];
+    }
+
+    const result = findBlockAndParent(blocks, targetId);
+    if (result) {
+        const updatedParent = [...result.parent];
+        updatedParent.splice(result.index + 1, 0, ...newBlocks);
+
+        if (result.parent === blocks) {
+            return updatedParent;
+        }
+
+        if (result.parentBlock) {
+            return updateBlockInTree(blocks, result.parentBlock.id, { children: updatedParent });
+        }
+    }
+
+    return [...blocks, ...newBlocks];
 }
 
 /**
@@ -361,6 +428,8 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
     // Track which block should be focused (after creation)
     const [focusBlockId, setFocusBlockId] = React.useState<string | null>(null);
     const [focusPosition, setFocusPosition] = React.useState<'start' | 'end' | null>(null);
+    const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
+    const [selectionAnchorId, setSelectionAnchorId] = useState<string | null>(null);
 
     const clearFocusBlock = useCallback(() => {
         setFocusBlockId(null);
@@ -370,6 +439,21 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
     const setFocusBlock = useCallback((id: string) => {
         setFocusBlockId(id);
         setFocusPosition('start');
+    }, []);
+
+    const clearSelectedBlocks = useCallback(() => {
+        setSelectedBlockIds([]);
+        setSelectionAnchorId(null);
+    }, []);
+
+    const setSelectedBlocks = useCallback((ids: string[]) => {
+        const unique = Array.from(new Set(ids));
+        setSelectedBlockIds(unique);
+        setSelectionAnchorId(unique[0] ?? null);
+        if (unique.length > 0) {
+            const sel = window.getSelection();
+            sel?.removeAllRanges();
+        }
     }, []);
 
     // Debounced save to localStorage
@@ -400,6 +484,26 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
         []
     );
 
+    const selectBlockRange = useCallback((targetId: string) => {
+        const order = flattenBlocks(currentPage.blocks).map((b) => b.id);
+        const anchor = selectionAnchorId ?? selectedBlockIds[0] ?? targetId;
+        const anchorIndex = order.indexOf(anchor);
+        const targetIndex = order.indexOf(targetId);
+        if (anchorIndex === -1 || targetIndex === -1) return;
+
+        const [start, end] = anchorIndex < targetIndex
+            ? [anchorIndex, targetIndex]
+            : [targetIndex, anchorIndex];
+        const ids = order.slice(start, end + 1);
+        setSelectedBlocks(ids);
+        setSelectionAnchorId(anchor);
+    }, [currentPage.blocks, selectionAnchorId, selectedBlockIds, setSelectedBlocks]);
+
+    const selectAllBlocks = useCallback(() => {
+        const ids = flattenBlocks(currentPage.blocks).map((b) => b.id);
+        setSelectedBlocks(ids);
+    }, [currentPage.blocks, setSelectedBlocks]);
+
     const setCurrentPage = useCallback((id: string) => {
         setWorkspace((ws) => ({
             ...ws,
@@ -407,7 +511,8 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
         }));
         setFocusBlockId(null);
         setFocusPosition(null);
-    }, []);
+        clearSelectedBlocks();
+    }, [clearSelectedBlocks]);
 
     const addPage = useCallback((): string => {
         const page = createInitialPage();
@@ -417,8 +522,9 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
         }));
         setFocusBlockId(page.blocks[0]?.id || null);
         setFocusPosition('start');
+        clearSelectedBlocks();
         return page.id;
-    }, []);
+    }, [clearSelectedBlocks]);
 
     // Actions
     const setTitle = useCallback((title: string) => {
@@ -445,6 +551,48 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
 
     const deleteBlock = useCallback((id: string) => {
         updateCurrentPage((p) => pageReducer(p, { type: 'DELETE_BLOCK', payload: { id } }));
+        clearSelectedBlocks();
+    }, [clearSelectedBlocks, updateCurrentPage]);
+
+    const deleteBlocksById = useCallback((ids: string[]) => {
+        if (ids.length === 0) return;
+        const idsSet = new Set(ids);
+        const order = flattenBlocks(currentPage.blocks).map((b) => b.id);
+
+        const selectedIndices = order
+            .map((bid, idx) => (idsSet.has(bid) ? idx : -1))
+            .filter((idx) => idx >= 0);
+
+        updateCurrentPage((p) => ({
+            ...p,
+            blocks: deleteBlocksFromTreeSet(p.blocks, idsSet),
+        }));
+        clearSelectedBlocks();
+
+        if (selectedIndices.length === 0) return;
+        const maxIndex = Math.max(...selectedIndices);
+        const minIndex = Math.min(...selectedIndices);
+
+        const nextId = order.slice(maxIndex + 1).find((bid) => !idsSet.has(bid));
+        const prevId = order.slice(0, minIndex).reverse().find((bid) => !idsSet.has(bid));
+        const focusId = nextId || prevId || null;
+        if (focusId) {
+            setFocusBlockId(focusId);
+            setFocusPosition('start');
+        } else {
+            setFocusBlockId(null);
+            setFocusPosition(null);
+        }
+    }, [clearSelectedBlocks, currentPage.blocks, updateCurrentPage]);
+
+    const insertBlocksAfter = useCallback((targetId: string | null, blocksToInsert: EditorBlock[]): string[] => {
+        if (blocksToInsert.length === 0) return [];
+        const clones = blocksToInsert.map(cloneBlockWithNewIds);
+        updateCurrentPage((p) => ({
+            ...p,
+            blocks: insertBlocksAfterInTree(p.blocks, targetId, clones),
+        }));
+        return clones.map((b) => b.id);
     }, [updateCurrentPage]);
 
     const moveBlockUp = useCallback((id: string) => {
@@ -508,11 +656,18 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
             focusPosition,
             clearFocusBlock,
             setFocusBlock,
+            selectedBlockIds,
+            setSelectedBlocks,
+            selectBlockRange,
+            clearSelectedBlocks,
+            selectAllBlocks,
             setTitle,
             addBlock,
             addBlockBefore,
             updateBlock,
             deleteBlock,
+            deleteBlocksById,
+            insertBlocksAfter,
             moveBlockUp,
             moveBlockDown,
             toggleCollapse,
@@ -530,11 +685,18 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
             focusPosition,
             clearFocusBlock,
             setFocusBlock,
+            selectedBlockIds,
+            setSelectedBlocks,
+            selectBlockRange,
+            clearSelectedBlocks,
+            selectAllBlocks,
             setTitle,
             addBlock,
             addBlockBefore,
             updateBlock,
             deleteBlock,
+            deleteBlocksById,
+            insertBlocksAfter,
             moveBlockUp,
             moveBlockDown,
             toggleCollapse,
