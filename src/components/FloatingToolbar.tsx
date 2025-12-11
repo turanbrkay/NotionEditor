@@ -43,8 +43,8 @@ export function FloatingToolbar({ onFormat, onColorChange }: FloatingToolbarProp
             return;
         }
 
-        const text = selection.toString().trim();
-        if (!text) {
+        const text = selection.toString();
+        if (!text || text.trim() === '') {
             setHasSelection(false);
             return;
         }
@@ -93,28 +93,27 @@ export function FloatingToolbar({ onFormat, onColorChange }: FloatingToolbarProp
         return null;
     }
 
-    const applyColorToSelection = (color: string) => {
-        const selection = window.getSelection();
+    const applyColorToSelection = (color: string): Range | null => {
+        const sel = window.getSelection();
         let range: Range | null = null;
 
-        const sel = selection || window.getSelection();
         if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
-            range = sel.getRangeAt(0);
+            range = sel.getRangeAt(0).cloneRange();
         } else if (selectionRef.current && sel) {
-            range = selectionRef.current;
+            range = selectionRef.current.cloneRange();
             sel.removeAllRanges();
             sel.addRange(range);
         } else {
-            return;
+            return null;
         }
 
-        if (!range) return;
+        if (!range) return null;
 
         const span = document.createElement('span');
         span.className = 'rt-color';
         if (color !== 'default') {
             span.classList.add(`rt-color-${color}`);
-            // Apply inline style so it is immediately visible even if CSS fails to load
+            // Inline styles ensure immediate visual feedback
             if (color.endsWith('_background')) {
                 span.style.backgroundColor = COLOR_VALUES[color];
             } else {
@@ -132,19 +131,24 @@ export function FloatingToolbar({ onFormat, onColorChange }: FloatingToolbarProp
             const contents = range.extractContents();
             span.appendChild(contents);
             range.insertNode(span);
+            range.selectNodeContents(span);
         }
+
+        // Keep selection and cached range in sync after DOM changes
         const finalSel = window.getSelection();
         if (finalSel) {
             finalSel.removeAllRanges();
             finalSel.addRange(range);
         }
+        selectionRef.current = range.cloneRange();
+        return range;
     };
 
     const handleColorSelect = (color: string) => {
-        applyColorToSelection(color);
+        const usedRange = applyColorToSelection(color);
         setShowTextColorMenu(false);
         setShowBgColorMenu(false);
-        onColorChange?.(selectionRef.current);
+        onColorChange?.(usedRange ?? selectionRef.current);
     };
 
     const handleClick = (format: string) => (e: React.MouseEvent) => {
