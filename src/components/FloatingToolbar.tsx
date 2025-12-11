@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface FloatingToolbarProps {
     onFormat: (format: string) => void;
-    onColorChange?: () => void;
+    onColorChange?: (range?: Range | null) => void;
 }
 
 const TEXT_COLORS = ['default', 'gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const;
@@ -34,7 +34,7 @@ export function FloatingToolbar({ onFormat, onColorChange }: FloatingToolbarProp
     const [hasSelection, setHasSelection] = useState(false);
     const [showTextColorMenu, setShowTextColorMenu] = useState(false);
     const [showBgColorMenu, setShowBgColorMenu] = useState(false);
-    const selectionRef = useState<{ current: Range | null }>({ current: null })[0];
+    const selectionRef = useRef<Range | null>(null);
 
     const updatePosition = useCallback(() => {
         const selection = window.getSelection();
@@ -144,7 +144,7 @@ export function FloatingToolbar({ onFormat, onColorChange }: FloatingToolbarProp
         applyColorToSelection(color);
         setShowTextColorMenu(false);
         setShowBgColorMenu(false);
-        onColorChange?.();
+        onColorChange?.(selectionRef.current);
     };
 
     const handleClick = (format: string) => (e: React.MouseEvent) => {
@@ -205,6 +205,7 @@ export function FloatingToolbar({ onFormat, onColorChange }: FloatingToolbarProp
             <div className="floating-toolbar-divider" />
             <button
                 className="floating-toolbar-btn"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -217,6 +218,7 @@ export function FloatingToolbar({ onFormat, onColorChange }: FloatingToolbarProp
             </button>
             <button
                 className="floating-toolbar-btn"
+                onMouseDown={(e) => e.preventDefault()}
                 onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();

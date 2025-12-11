@@ -9,23 +9,17 @@ export function Editor() {
     const { page, updateBlock } = usePage();
     const blocks = page.blocks;
 
-    const persistSelectionToState = () => {
+    const persistSelectionToState = (range?: Range | null) => {
         const selection = window.getSelection();
-        if (!selection || selection.rangeCount === 0) {
-            return;
-        }
+        const activeRange = range ?? (selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null);
+        if (!activeRange) return;
 
-        const startBlock = selection.anchorNode ? getClosestBlockId(selection.anchorNode) : null;
-        const endBlock = selection.focusNode ? getClosestBlockId(selection.focusNode) : null;
-
-        if (!startBlock || !endBlock || startBlock !== endBlock) {
-            return;
-        }
+        const startBlock = getClosestBlockId(activeRange.startContainer);
+        const endBlock = getClosestBlockId(activeRange.endContainer);
+        if (!startBlock || !endBlock || startBlock !== endBlock) return;
 
         const blockElement = document.querySelector<HTMLElement>(`[data-block-id="${startBlock}"] [contenteditable="true"]`);
-        if (!blockElement) {
-            return;
-        }
+        if (!blockElement) return;
 
         const richText = serializeRichTextFromElement(blockElement);
         updateBlock(startBlock, { rich_text: richText });

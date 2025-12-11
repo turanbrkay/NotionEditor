@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { usePage } from '../../context/PageContext';
 import type { EditorBlock } from '../../types/types';
 import { richTextEquals, serializeRichTextFromElement, setElementRichText } from '../../utils/blocks';
+import { parsePastedText, handlePasteIntoBlocks } from '../../utils/paste';
 import { useBlockFocus, isAtFirstLine, isAtLastLine } from '../../utils/useBlockFocus';
 
 interface ToDoBlockProps {
@@ -26,6 +27,15 @@ export function ToDoBlock({ block }: ToDoBlockProps) {
         if (contentRef.current) {
             updateBlock(block.id, { rich_text: serializeRichTextFromElement(contentRef.current) });
         }
+    };
+
+    const handlePaste = (e: React.ClipboardEvent) => {
+        const text = e.clipboardData?.getData('text/plain') || '';
+        if (!text) return;
+        const parsed = parsePastedText(text);
+        if (parsed.length === 0) return;
+        e.preventDefault();
+        handlePasteIntoBlocks(block.id, parsed, { updateBlock, addBlock, setFocusBlock: () => {} });
     };
 
     const handleCheckboxChange = () => {
@@ -79,6 +89,7 @@ export function ToDoBlock({ block }: ToDoBlockProps) {
                 suppressContentEditableWarning
                 onInput={handleInput}
                 onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
                 data-placeholder=""
             />
         </div>

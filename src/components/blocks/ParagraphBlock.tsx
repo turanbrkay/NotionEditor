@@ -7,6 +7,7 @@ import {
     serializeRichTextFromElement,
     setElementRichText,
 } from '../../utils/blocks';
+import { parsePastedText, handlePasteIntoBlocks } from '../../utils/paste';
 import { useBlockFocus, isAtFirstLine, isAtLastLine } from '../../utils/useBlockFocus';
 import { SlashMenu } from '../SlashMenu';
 
@@ -119,6 +120,15 @@ export function ParagraphBlock({ block }: ParagraphBlockProps) {
         }, 0);
     };
 
+    const handlePaste = (e: React.ClipboardEvent) => {
+        const text = e.clipboardData?.getData('text/plain') || '';
+        if (!text) return;
+        const parsed = parsePastedText(text);
+        if (parsed.length === 0) return;
+        e.preventDefault();
+        handlePasteIntoBlocks(block.id, parsed, { updateBlock, addBlock, setFocusBlock });
+    };
+
     return (
         <div style={{ position: 'relative' }}>
             <div
@@ -128,6 +138,7 @@ export function ParagraphBlock({ block }: ParagraphBlockProps) {
                 suppressContentEditableWarning
                 onInput={handleInput}
                 onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
                 data-placeholder=""
             />
             {showSlashMenu && (

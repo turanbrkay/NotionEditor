@@ -2,6 +2,7 @@ import React, { useRef, useEffect } from 'react';
 import { usePage } from '../../context/PageContext';
 import type { EditorBlock, ToggleBlockType } from '../../types/types';
 import { richTextEquals, serializeRichTextFromElement, setElementRichText } from '../../utils/blocks';
+import { parsePastedText, handlePasteIntoBlocks } from '../../utils/paste';
 import { BlockRenderer } from './BlockRenderer';
 import { isAtFirstLine, isAtLastLine } from '../../utils/useBlockFocus';
 
@@ -23,7 +24,7 @@ function getToggleHeadingLevel(type: ToggleBlockType): 1 | 2 | 3 | null {
 }
 
 export function ToggleBlock({ block }: ToggleBlockProps) {
-    const { updateBlock, toggleCollapse, addChildBlock, deleteBlock, focusBlockId, clearFocusBlock, focusPreviousBlock, focusNextBlock, escapeToMainLevel } = usePage();
+    const { updateBlock, toggleCollapse, addChildBlock, deleteBlock, focusBlockId, clearFocusBlock, focusPreviousBlock, focusNextBlock, escapeToMainLevel, addBlock, setFocusBlock } = usePage();
     const contentRef = useRef<HTMLDivElement>(null);
     const headingLevel = getToggleHeadingLevel(block.type as ToggleBlockType);
     const isExpanded = !block.collapsed;
@@ -56,6 +57,15 @@ export function ToggleBlock({ block }: ToggleBlockProps) {
         if (contentRef.current) {
             updateBlock(block.id, { rich_text: serializeRichTextFromElement(contentRef.current) });
         }
+    };
+
+    const handlePaste = (e: React.ClipboardEvent) => {
+        const text = e.clipboardData?.getData('text/plain') || '';
+        if (!text) return;
+        const parsed = parsePastedText(text);
+        if (parsed.length === 0) return;
+        e.preventDefault();
+        handlePasteIntoBlocks(block.id, parsed, { updateBlock, addBlock, setFocusBlock });
     };
 
     const handleToggle = () => {
@@ -137,6 +147,7 @@ export function ToggleBlock({ block }: ToggleBlockProps) {
                     suppressContentEditableWarning
                     onInput={handleInput}
                     onKeyDown={handleKeyDown}
+                    onPaste={handlePaste}
                     data-placeholder={headingLevel ? '' : ''}
                     role={headingLevel ? 'heading' : undefined}
                     aria-level={headingLevel || undefined}
