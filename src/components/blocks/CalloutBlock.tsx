@@ -1,0 +1,96 @@
+import { useEffect, useRef } from 'react';
+import { usePage } from '../../context/PageContext';
+import type { EditorBlock } from '../../types/types';
+import { getPlainText, createRichText } from '../../utils/blocks';
+import { isAtFirstLine, isAtLastLine } from '../../utils/useBlockFocus';
+
+interface CalloutBlockProps {
+    block: EditorBlock;
+}
+
+export function CalloutBlock({ block }: CalloutBlockProps) {
+    const { updateBlock, addBlock, deleteBlock, focusPreviousBlock, focusNextBlock, focusBlockId, clearFocusBlock } = usePage();
+    const contentRef = useRef<HTMLDivElement>(null);
+    const icon = block.icon || '💡';
+
+    useEffect(() => {
+        if (contentRef.current) {
+            const blockText = getPlainText(block.rich_text);
+            const currentText = contentRef.current.innerText || '';
+            if (currentText !== blockText) {
+                contentRef.current.innerText = blockText;
+            }
+        }
+    }, [block.rich_text]);
+
+    useEffect(() => {
+        if (focusBlockId === block.id && contentRef.current) {
+            contentRef.current.focus();
+            const range = document.createRange();
+            const sel = window.getSelection();
+            range.selectNodeContents(contentRef.current);
+            range.collapse(false);
+            sel?.removeAllRanges();
+            sel?.addRange(range);
+            clearFocusBlock();
+        }
+    }, [focusBlockId, block.id, clearFocusBlock]);
+
+    const handleInput = () => {
+        if (contentRef.current) {
+            const text = contentRef.current.innerText || '';
+            updateBlock(block.id, { rich_text: createRichText(text) });
+        }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (!contentRef.current) return;
+
+        const text = contentRef.current.innerText || '';
+
+        // Ctrl+Enter = EXIT block and create paragraph below
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            addBlock('paragraph', block.id);
+            return;
+        }
+
+        // Arrow navigation
+        if (e.key === 'ArrowUp' && isAtFirstLine(contentRef.current)) {
+            e.preventDefault();
+            focusPreviousBlock(block.id);
+            return;
+        }
+
+        if (e.key === 'ArrowDown' && isAtLastLine(contentRef.current)) {
+            e.preventDefault();
+            focusNextBlock(block.id);
+            return;
+        }
+
+        // Regular Enter = new line inside block (allow default)
+
+        // Backspace on empty
+        if (e.key === 'Backspace' && text === '') {
+            e.preventDefault();
+            deleteBlock(block.id);
+        }
+    };
+
+    return (
+        <div className="callout-block">
+            <span className="callout-icon" role="img" aria-label="Callout icon">
+                {icon}
+            </span>
+            <div
+                ref={contentRef}
+                className="callout-content"
+                contentEditable
+                suppressContentEditableWarning
+                onInput={handleInput}
+                onKeyDown={handleKeyDown}
+                data-placeholder=""
+            />
+        </div>
+    );
+}
