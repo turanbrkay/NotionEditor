@@ -1,73 +1,27 @@
-# React + TypeScript + Vite
+# Notion-like Offline Editor (React + TypeScript + Vite)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Local-only, block-based editor that exports Notion-compatible JSON. Vite is configured with `base: './'` so the bundled app runs directly from `file://` with no server.
 
-Currently, two official plugins are available:
+## Quick start (dev)
+- Install once: `npm ci`
+- Run dev server: `npm run dev`
+- Type checking + build: `npm run build`
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Ship a static bundle (no npm on target machine)
+These steps create a ready-to-run bundle you can open via `file://` at work.
 
-## React Compiler
+1) Build locally  
+`npm run build`
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+2) Package the static output  
+- Windows (PowerShell): `Compress-Archive -Path dist\\* -DestinationPath dist.zip -Force`  
+- macOS/Linux: `cd dist && zip -r ../dist.zip .`
 
-## Expanding the ESLint configuration
+3) Move `dist.zip` to the target machine (GitHub release/artifact, repo checkout, or USB), unzip it, and open `dist/index.html` in the browser. No Node/npm is required.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Tip: keep `dist/` checked in if you want versioned bundles without rebuilding at work.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Optional Docker path (if Docker is allowed)
+- Build image locally: `docker build -t notion-editor .`
+- Export image: `docker save notion-editor > notion-editor.tar`
+- Copy `notion-editor.tar` to work, load with `docker load -i notion-editor.tar`, and run `docker run -p 4173:4173 notion-editor` (still no npm install on-site).
