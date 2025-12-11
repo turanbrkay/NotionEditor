@@ -6,7 +6,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
-    const { pages, currentPageId, setCurrentPage, addPage } = usePage();
+    const { pages, currentPageId, setCurrentPage, addPage, deletePage } = usePage();
 
     const handleAddPage = () => {
         const id = addPage();
@@ -23,20 +23,33 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             </div>
             {!collapsed && (
                 <>
-                    <div className="sidebar__list">
-                        {pages.map((page) => (
-                            <button
-                                key={page.id}
-                                className={`sidebar__item ${page.id === currentPageId ? 'sidebar__item--active' : ''}`}
-                                onClick={() => setCurrentPage(page.id)}
-                            >
-                                {page.title || 'Untitled'}
-                            </button>
-                        ))}
-                    </div>
                     <button className="sidebar__add" onClick={handleAddPage}>
                         + Add page
                     </button>
+                    <div className="sidebar__list">
+                        {pages.map((page) => (
+                            <div
+                                key={page.id}
+                                className={`sidebar__item ${page.id === currentPageId ? 'sidebar__item--active' : ''}`}
+                            >
+                                <button
+                                    className="sidebar__item-btn"
+                                    onClick={() => setCurrentPage(page.id)}
+                                    title={page.title || 'Untitled'}
+                                >
+                                    <span className="sidebar__item-label">{page.title || 'Untitled'}</span>
+                                </button>
+                                <button
+                                    className="sidebar__item-delete"
+                                    onClick={() => deletePage(page.id)}
+                                    aria-label="Delete page"
+                                    title="Delete page"
+                                >
+                                    🗑️
+                                </button>
+                            </div>
+                        ))}
+                    </div>
                 </>
             )}
         </aside>

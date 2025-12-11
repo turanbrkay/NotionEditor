@@ -29,6 +29,7 @@ interface PageContextValue {
     page: Page;
     setCurrentPage: (id: string) => void;
     addPage: () => string;
+    deletePage: (id: string) => void;
     focusBlockId: string | null;
     focusPosition: 'start' | 'end' | null;
     clearFocusBlock: () => void;
@@ -526,6 +527,30 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
         return page.id;
     }, [clearSelectedBlocks]);
 
+    const deletePage = useCallback((id: string) => {
+        setWorkspace((ws) => {
+            const remaining = ws.pages.filter((p) => p.id !== id);
+            let nextPages = remaining;
+            let nextCurrent = ws.currentPageId;
+
+            if (remaining.length === 0) {
+                const page = createInitialPage();
+                nextPages = [page];
+                nextCurrent = page.id;
+            } else if (ws.currentPageId === id) {
+                nextCurrent = remaining[0].id;
+            }
+
+            return {
+                pages: nextPages,
+                currentPageId: nextCurrent,
+            };
+        });
+        setFocusBlockId(null);
+        setFocusPosition(null);
+        clearSelectedBlocks();
+    }, [clearSelectedBlocks]);
+
     // Actions
     const setTitle = useCallback((title: string) => {
         updateCurrentPage((p) => pageReducer(p, { type: 'SET_TITLE', payload: title }));
@@ -652,6 +677,7 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
             page: currentPage,
             setCurrentPage,
             addPage,
+            deletePage,
             focusBlockId,
             focusPosition,
             clearFocusBlock,
@@ -681,6 +707,7 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
             currentPage.id,
             setCurrentPage,
             addPage,
+            deletePage,
             focusBlockId,
             focusPosition,
             clearFocusBlock,
