@@ -89,6 +89,7 @@ export function NumberedListBlock({ block, displayNumber }: NumberedListBlockPro
                 ref={contentRef}
                 className="list-content"
                 contentEditable
+                spellCheck={false}
                 suppressContentEditableWarning
                 onInput={handleInput}
                 onKeyDown={handleKeyDown}

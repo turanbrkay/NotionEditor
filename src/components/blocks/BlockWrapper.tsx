@@ -76,6 +76,7 @@ export function BlockWrapper({ block, children }: BlockWrapperProps) {
         <div
             className={`block-wrapper ${isHovered ? 'block-wrapper--hovered' : ''} ${isSelected ? 'block-wrapper--selected' : ''}`}
             data-block-id={block.id}
+            data-block-type={block.type}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
             aria-selected={isSelected}

@@ -280,7 +280,13 @@ export function Editor() {
         <div className="page-container">
             <div className="page-content">
                 <PageTitle />
-                <FloatingToolbar onFormat={handleFormat} onColorChange={persistSelectionToState} />
+                <FloatingToolbar
+                    onFormat={handleFormat}
+                    onColorChange={persistSelectionToState}
+                    onBlockTypeChange={(blockId, newType) => {
+                        updateBlock(blockId, { type: newType as any });
+                    }}
+                />
 
                 <div className="blocks-container">
                     {blocks.map((block, index) => (

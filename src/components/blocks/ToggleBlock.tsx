@@ -144,6 +144,7 @@ export function ToggleBlock({ block }: ToggleBlockProps) {
                     ref={contentRef}
                     className="toggle-content"
                     contentEditable
+                spellCheck={false}
                     suppressContentEditableWarning
                     onInput={handleInput}
                     onKeyDown={handleKeyDown}

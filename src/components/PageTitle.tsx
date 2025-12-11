@@ -22,6 +22,7 @@ export function PageTitle() {
                 onChange={handleChange}
                 placeholder="Untitled"
                 aria-label="Page title"
+                spellCheck={false}
             />
             <button className="toolbar-button toolbar-button--primary" onClick={handleExport}>
                 Export JSON

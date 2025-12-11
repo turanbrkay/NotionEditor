@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(find:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(grep:*)",
+      "Bash(for file in BulletedListBlock.tsx NumberedListBlock.tsx ToDoBlock.tsx CalloutBlock.tsx QuoteBlock.tsx ToggleBlock.tsx)",
+      "Bash(do sed -i 's/contentEditable$/contentEditable\\n                spellCheck={false}/g' \"$file\")",
+      "Bash(done)"
     ]
   }
 }

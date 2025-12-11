@@ -93,6 +93,7 @@ export function HeadingBlock({ block }: HeadingBlockProps) {
             className={`block-content block-heading block-heading--${level}`}
             contentEditable
             suppressContentEditableWarning
+            spellCheck={false}
             onInput={handleInput}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}

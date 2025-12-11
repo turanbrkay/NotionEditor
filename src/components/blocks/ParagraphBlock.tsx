@@ -150,6 +150,7 @@ export function ParagraphBlock({ block }: ParagraphBlockProps) {
                 className="block-content block-paragraph"
                 contentEditable
                 suppressContentEditableWarning
+                spellCheck={false}
                 onInput={handleInput}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}

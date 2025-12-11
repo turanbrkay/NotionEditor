@@ -99,6 +99,7 @@ export function QuoteBlock({ block }: QuoteBlockProps) {
                 ref={contentRef}
                 className="quote-content"
                 contentEditable
+                spellCheck={false}
                 suppressContentEditableWarning
                 onInput={handleInput}
                 onKeyDown={handleKeyDown}

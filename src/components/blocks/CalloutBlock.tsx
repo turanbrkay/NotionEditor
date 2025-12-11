@@ -108,6 +108,7 @@ export function CalloutBlock({ block }: CalloutBlockProps) {
                 ref={contentRef}
                 className="callout-content"
                 contentEditable
+                spellCheck={false}
                 suppressContentEditableWarning
                 onInput={handleInput}
                 onKeyDown={handleKeyDown}

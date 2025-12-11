@@ -97,6 +97,7 @@ export function ToDoBlock({ block }: ToDoBlockProps) {
                 ref={contentRef}
                 className={`todo-content ${isChecked ? 'todo-content--checked' : ''}`}
                 contentEditable
+                spellCheck={false}
                 suppressContentEditableWarning
                 onInput={handleInput}
                 onKeyDown={handleKeyDown}

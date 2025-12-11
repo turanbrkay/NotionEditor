@@ -377,6 +377,7 @@ body {
   flex: 1;
   min-width: 0;
   outline: none;
+  user-select: text;
 }
 
 /* Minimal placeholder - only show if has content */
@@ -384,11 +385,29 @@ body {
   content: attr(data-placeholder);
   color: var(--color-text-placeholder);
   pointer-events: none;
+  user-select: none;
 }
 
 .block-main {
   flex: 1;
   min-width: 0;
+}
+
+/* Allow text selection across multiple blocks */
+.blocks-container {
+  user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+}
+
+.block-wrapper {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Disable contentEditable boundary for selection */
+.block-content[contenteditable="true"] {
+  -webkit-user-modify: read-write-plaintext-only;
 }
 
 /* ============================================

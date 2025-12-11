@@ -87,6 +87,7 @@ export function BulletedListBlock({ block }: BulletedListBlockProps) {
                 ref={contentRef}
                 className="list-content"
                 contentEditable
+                spellCheck={false}
                 suppressContentEditableWarning
                 onInput={handleInput}
                 onKeyDown={handleKeyDown}
