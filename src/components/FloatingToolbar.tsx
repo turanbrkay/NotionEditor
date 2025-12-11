@@ -17,6 +17,7 @@ const BLOCK_TYPES = [
     { value: 'toggle_list', label: 'Toggle List' },
     { value: 'quote', label: 'Quote' },
     { value: 'callout', label: 'Callout' },
+    { value: 'image', label: 'Image' },
     { value: 'code', label: 'Code' },
 ] as const;
 

@@ -54,6 +54,11 @@ function blockToPlainText(block: EditorBlock, depth = 0): string {
         case 'callout':
             line = `${indent}${block.icon ? `${block.icon} ` : ''}${normalized}`;
             break;
+        case 'image': {
+            const url = block.imageUrl || '';
+            line = `${indent}![${normalized}](${url})`;
+            break;
+        }
         case 'toggle_heading_1':
         case 'toggle_heading_2':
         case 'toggle_heading_3':

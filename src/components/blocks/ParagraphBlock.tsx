@@ -6,6 +6,7 @@ import {
     richTextEquals,
     serializeRichTextFromElement,
     setElementRichText,
+    DEFAULT_IMAGE_WIDTH,
 } from '../../utils/blocks';
 import { parsePastedText, handlePasteIntoBlocks } from '../../utils/paste';
 import { useBlockFocus, isAtFirstLine, isAtLastLine, isAtBlockStart } from '../../utils/useBlockFocus';
@@ -116,17 +117,37 @@ export function ParagraphBlock({ block }: ParagraphBlockProps) {
 
     const handleSlashSelect = (type: string) => {
         setShowSlashMenu(false);
+
+        if (type === 'image') {
+            const url = window.prompt('Paste image URL');
+            if (contentRef.current) {
+                contentRef.current.textContent = '';
+            }
+            if (!url || !url.trim()) {
+                return;
+            }
+            updateBlock(block.id, {
+                type: 'image',
+                imageUrl: url.trim(),
+                imageWidthPercent: DEFAULT_IMAGE_WIDTH,
+                rich_text: [],
+            });
+            setTimeout(() => {
+                setFocusBlock(block.id);
+            }, 0);
+            return;
+        }
+
         if (contentRef.current) {
             contentRef.current.textContent = '';
         }
-        // Update block type
         updateBlock(block.id, {
             type: type as EditorBlock['type'],
             rich_text: createRichText(''),
             ...(type === 'to_do' ? { checked: false } : {}),
             ...(type.startsWith('toggle') ? { collapsed: false, children: [] } : {}),
             ...(type === 'code' ? { language: 'cpp' } : {}),
-            ...(type === 'callout' ? { icon: '💡' } : {}),
+            ...(type === 'callout' ? { icon: 'DY' } : {}),
         });
         // IMPORTANT: Trigger focus on this block so the new component receives focus
         setTimeout(() => {

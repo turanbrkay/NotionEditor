@@ -20,9 +20,10 @@ const MENU_ITEMS: SlashMenuItem[] = [
     { type: 'toggle_heading_1', title: 'Toggle H1', description: 'Collapsible heading 1', icon: '▶' },
     { type: 'toggle_heading_2', title: 'Toggle H2', description: 'Collapsible heading 2', icon: '▶' },
     { type: 'toggle_heading_3', title: 'Toggle H3', description: 'Collapsible heading 3', icon: '▶' },
-    { type: 'callout', title: 'Callout', description: 'Highlighted callout box', icon: '💡' },
+    { type: 'callout', title: 'Callout', description: 'Highlighted callout box', icon: 'DY' },
     { type: 'quote', title: 'Quote', description: 'Block quote', icon: '"' },
     { type: 'code', title: 'Code', description: 'Code block with syntax', icon: '</>' },
+    { type: 'image', title: 'Image', description: 'Insert an image', icon: 'img' },
     { type: 'divider', title: 'Divider', description: 'Horizontal line', icon: '—' },
 ];
 

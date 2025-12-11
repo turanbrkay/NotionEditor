@@ -215,6 +215,11 @@ export function serializeRichTextFromElement(element: HTMLElement): RichTextText
         if (decoration.includes('underline')) next.underline = true;
         if (decoration.includes('line-through')) next.strikethrough = true;
 
+        // Default inline code color to red for Notion export when no color set
+        if (next.code && (!next.color || next.color === 'default')) {
+            next.color = 'red';
+        }
+
         return next;
     };
 
@@ -288,6 +293,8 @@ export function getPlainText(richText?: RichTextText[]): string {
     return normalizeRichText(richText).map((rt) => rt.plain_text).join('');
 }
 
+export const DEFAULT_IMAGE_WIDTH = 70;
+
 /**
  * Default values for different block types
  */
@@ -298,7 +305,8 @@ const blockDefaults: Partial<Record<BlockType, Partial<EditorBlock>>> = {
     toggle_heading_3: { collapsed: false, children: [] },
     toggle_list: { collapsed: false, children: [] },
     code: { language: 'cpp' },
-    callout: { icon: '💡' },
+    callout: { icon: 'DY' },
+    image: { imageUrl: '', imageWidthPercent: DEFAULT_IMAGE_WIDTH },
 };
 
 /**
@@ -364,6 +372,7 @@ export function getBlockTypeLabel(type: BlockType): string {
         callout: 'Callout',
         code: 'Code',
         quote: 'Quote',
+        image: 'Image',
         divider: 'Divider',
     };
     return labels[type];
@@ -387,5 +396,6 @@ export const ALL_BLOCK_TYPES: BlockType[] = [
     'callout',
     'code',
     'quote',
+    'image',
     'divider',
 ];

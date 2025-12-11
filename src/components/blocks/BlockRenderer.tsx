@@ -11,6 +11,7 @@ import { CalloutBlock } from './CalloutBlock';
 import { CodeBlock } from './CodeBlock';
 import { QuoteBlock } from './QuoteBlock';
 import { DividerBlock } from './DividerBlock';
+import { ImageBlock } from './ImageBlock';
 
 interface BlockRendererProps {
     block: EditorBlock;
@@ -73,6 +74,9 @@ export function BlockRenderer({ block, index, siblings }: BlockRendererProps) {
 
             case 'quote':
                 return <QuoteBlock block={block} />;
+
+            case 'image':
+                return <ImageBlock block={block} />;
 
             case 'divider':
                 return <DividerBlock />;

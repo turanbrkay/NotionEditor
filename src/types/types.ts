@@ -16,6 +16,7 @@ export type BlockType =
     | 'callout'
     | 'code'
     | 'quote'
+    | 'image'
     | 'divider';
 
 /**
@@ -52,6 +53,8 @@ export interface EditorBlock {
     language?: string;         // Used by 'code'
     icon?: string;             // Used by 'callout'
     children?: EditorBlock[];  // Nested blocks
+    imageUrl?: string;         // Used by 'image'
+    imageWidthPercent?: number; // UI-only width control for images
 }
 
 /**
@@ -132,6 +135,14 @@ export type NotionBlockInput =
         code: {
             rich_text: RichTextText[];
             language: string;
+        };
+    }
+    | {
+        type: 'image';
+        image: {
+            type: 'external';
+            external: { url: string };
+            caption?: RichTextText[];
         };
     }
     | {

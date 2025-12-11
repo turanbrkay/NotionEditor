@@ -12,7 +12,15 @@ import { normalizeRichText } from './blocks';
  * Toggle variants all export as 'toggle' type since Notion doesn't have toggle_heading
  */
 export function editorBlockToNotionBlock(block: EditorBlock): NotionBlockInput {
-    const richText: RichTextText[] = normalizeRichText(block.rich_text);
+    const richText: RichTextText[] = normalizeRichText(block.rich_text).map((rt) => {
+        if (rt.annotations?.code && (!rt.annotations.color || rt.annotations.color === 'default')) {
+            return {
+                ...rt,
+                annotations: { ...rt.annotations, color: 'red' },
+            };
+        }
+        return rt;
+    });
     const children = block.children?.map(editorBlockToNotionBlock);
 
     switch (block.type) {
@@ -90,10 +98,32 @@ export function editorBlockToNotionBlock(block: EditorBlock): NotionBlockInput {
             return {
                 type: 'code',
                 code: {
-                    rich_text: richText,
+                    // Strip annotations for code blocks per request
+                    rich_text: richText.map((rt) => ({
+                        type: 'text',
+                        text: { ...rt.text },
+                        plain_text: rt.plain_text,
+                        href: rt.href ?? null,
+                    })),
                     language: block.language || 'plain text',
                 },
             };
+
+        case 'image': {
+            const url = (block.imageUrl || '').trim();
+            const caption = normalizeRichText(block.rich_text).filter((rt) => {
+                const content = (rt.text?.content ?? rt.plain_text ?? '').trim();
+                return content.length > 0;
+            });
+            return {
+                type: 'image',
+                image: {
+                    type: 'external',
+                    external: { url },
+                    ...(caption.length ? { caption } : {}),
+                },
+            };
+        }
 
         case 'quote':
             return {
