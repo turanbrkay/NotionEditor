@@ -8,7 +8,7 @@ import {
     setElementRichText,
 } from '../../utils/blocks';
 import { parsePastedText, handlePasteIntoBlocks } from '../../utils/paste';
-import { useBlockFocus, isAtFirstLine, isAtLastLine } from '../../utils/useBlockFocus';
+import { useBlockFocus, isAtFirstLine, isAtLastLine, isAtBlockStart } from '../../utils/useBlockFocus';
 import { SlashMenu } from '../SlashMenu';
 
 interface ParagraphBlockProps {
@@ -16,7 +16,7 @@ interface ParagraphBlockProps {
 }
 
 export function ParagraphBlock({ block }: ParagraphBlockProps) {
-    const { updateBlock, addBlock, deleteBlock, focusPreviousBlock, focusNextBlock, setFocusBlock, escapeToMainLevel } = usePage();
+    const { updateBlock, addBlock, addBlockBefore, deleteBlock, focusPreviousBlock, focusNextBlock, setFocusBlock, escapeToMainLevel } = usePage();
     const contentRef = useBlockFocus(block.id);
     const [showSlashMenu, setShowSlashMenu] = useState(false);
 
@@ -90,6 +90,20 @@ export function ParagraphBlock({ block }: ParagraphBlockProps) {
             }
             e.preventDefault();
             if (showSlashMenu) return;
+
+            if (text.trim() === '---') {
+                updateBlock(block.id, { type: 'divider', rich_text: [] });
+                const newId = addBlock('paragraph', block.id);
+                setFocusBlock(newId);
+                return;
+            }
+
+            if (contentRef.current && isAtBlockStart(contentRef.current)) {
+                const newId = addBlockBefore('paragraph', block.id);
+                setFocusBlock(newId);
+                return;
+            }
+
             addBlock('paragraph', block.id);
         }
 

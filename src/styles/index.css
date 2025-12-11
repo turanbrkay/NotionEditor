@@ -262,6 +262,22 @@ body {
   color: var(--color-text-placeholder);
 }
 
+.page-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.page-title-row .page-title {
+  margin-bottom: 0;
+}
+
+.page-title-row .toolbar-button {
+
+  white-space: nowrap;
+}
+
 /* ============================================
    Toolbar - Minimal (Export only)
    ============================================ */
@@ -390,25 +406,99 @@ body {
 }
 
 /* Rich text colors */
-.rt-color { display: inline; }
-.rt-color-gray { color: #9ca3af; }
-.rt-color-brown { color: #b5651d; }
-.rt-color-orange { color: #f97316; }
-.rt-color-yellow { color: #eab308; }
-.rt-color-green { color: #22c55e; }
-.rt-color-blue { color: #3b82f6; }
-.rt-color-purple { color: #a855f7; }
-.rt-color-pink { color: #ec4899; }
-.rt-color-red { color: #ef4444; }
-.rt-color-gray_background { background: #1f2937; padding: 2px 4px; border-radius: 3px; }
-.rt-color-brown_background { background: #3b2f2f; padding: 2px 4px; border-radius: 3px; }
-.rt-color-orange_background { background: #3a2412; padding: 2px 4px; border-radius: 3px; }
-.rt-color-yellow_background { background: #3b2f0a; padding: 2px 4px; border-radius: 3px; }
-.rt-color-green_background { background: #0f2e1f; padding: 2px 4px; border-radius: 3px; }
-.rt-color-blue_background { background: #0f1f3a; padding: 2px 4px; border-radius: 3px; }
-.rt-color-purple_background { background: #231137; padding: 2px 4px; border-radius: 3px; }
-.rt-color-pink_background { background: #2f0f1f; padding: 2px 4px; border-radius: 3px; }
-.rt-color-red_background { background: #3a0f14; padding: 2px 4px; border-radius: 3px; }
+.rt-color {
+  display: inline;
+}
+
+.rt-color-gray {
+  color: #9ca3af;
+}
+
+.rt-color-brown {
+  color: #b5651d;
+}
+
+.rt-color-orange {
+  color: #f97316;
+}
+
+.rt-color-yellow {
+  color: #eab308;
+}
+
+.rt-color-green {
+  color: #22c55e;
+}
+
+.rt-color-blue {
+  color: #3b82f6;
+}
+
+.rt-color-purple {
+  color: #a855f7;
+}
+
+.rt-color-pink {
+  color: #ec4899;
+}
+
+.rt-color-red {
+  color: #ef4444;
+}
+
+.rt-color-gray_background {
+  background: #1f2937;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.rt-color-brown_background {
+  background: #3b2f2f;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.rt-color-orange_background {
+  background: #3a2412;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.rt-color-yellow_background {
+  background: #3b2f0a;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.rt-color-green_background {
+  background: #0f2e1f;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.rt-color-blue_background {
+  background: #0f1f3a;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.rt-color-purple_background {
+  background: #231137;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.rt-color-pink_background {
+  background: #2f0f1f;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+
+.rt-color-red_background {
+  background: #3a0f14;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
 
 /* ============================================
    Paragraph Block
@@ -949,7 +1039,7 @@ body {
   color: var(--color-text);
 }
 
-.floating-toolbar-color-section + .floating-toolbar-color-section {
+.floating-toolbar-color-section+.floating-toolbar-color-section {
   margin-top: 8px;
   padding-top: 8px;
   border-top: 1px solid var(--color-border);

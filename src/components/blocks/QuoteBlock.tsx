@@ -10,7 +10,7 @@ interface QuoteBlockProps {
 }
 
 export function QuoteBlock({ block }: QuoteBlockProps) {
-    const { updateBlock, addBlock, deleteBlock, focusPreviousBlock, focusNextBlock, focusBlockId, clearFocusBlock } = usePage();
+    const { updateBlock, addBlock, deleteBlock, focusPreviousBlock, focusNextBlock, focusBlockId, clearFocusBlock, setFocusBlock } = usePage();
     const contentRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -72,6 +72,15 @@ export function QuoteBlock({ block }: QuoteBlockProps) {
         if (e.key === 'ArrowDown' && isAtLastLine(contentRef.current)) {
             e.preventDefault();
             focusNextBlock(block.id);
+            return;
+        }
+
+        // Convert --- to divider
+        if (e.key === 'Enter' && !e.shiftKey && text.trim() === '---') {
+            e.preventDefault();
+            updateBlock(block.id, { type: 'divider', rich_text: [] });
+            const newId = addBlock('paragraph', block.id);
+            setFocusBlock(newId);
             return;
         }
 

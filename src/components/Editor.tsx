@@ -10,7 +10,6 @@ import {
     serializeClipboardPayload,
 } from '../utils/clipboard';
 import { PageTitle } from './PageTitle';
-import { Toolbar } from './Toolbar';
 import { FloatingToolbar } from './FloatingToolbar';
 import { BlockRenderer } from './blocks/BlockRenderer';
 
@@ -281,8 +280,6 @@ export function Editor() {
         <div className="page-container">
             <div className="page-content">
                 <PageTitle />
-                <Toolbar />
-
                 <FloatingToolbar onFormat={handleFormat} onColorChange={persistSelectionToState} />
 
                 <div className="blocks-container">

@@ -72,3 +72,20 @@ export function isAtLastLine(element: HTMLElement): boolean {
     const textAfter = postCaretRange.toString();
     return !textAfter.includes('\n');
 }
+
+/**
+ * Check if cursor is at the very start of the contentEditable element
+ */
+export function isAtBlockStart(element: HTMLElement): boolean {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) return false;
+
+    const range = selection.getRangeAt(0);
+    if (!element.contains(range.startContainer)) return false;
+
+    const preCaretRange = range.cloneRange();
+    preCaretRange.selectNodeContents(element);
+    preCaretRange.setEnd(range.startContainer, range.startOffset);
+    const textBefore = preCaretRange.toString();
+    return textBefore.length === 0;
+}

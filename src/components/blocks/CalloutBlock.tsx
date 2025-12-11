@@ -3,14 +3,14 @@ import { usePage } from '../../context/PageContext';
 import type { EditorBlock } from '../../types/types';
 import { richTextEquals, serializeRichTextFromElement, setElementRichText } from '../../utils/blocks';
 import { parsePastedText, handlePasteIntoBlocks } from '../../utils/paste';
-import { isAtFirstLine, isAtLastLine } from '../../utils/useBlockFocus';
+import { isAtFirstLine, isAtLastLine, isAtBlockStart } from '../../utils/useBlockFocus';
 
 interface CalloutBlockProps {
     block: EditorBlock;
 }
 
 export function CalloutBlock({ block }: CalloutBlockProps) {
-    const { updateBlock, addBlock, deleteBlock, focusPreviousBlock, focusNextBlock, focusBlockId, clearFocusBlock } = usePage();
+    const { updateBlock, addBlock, deleteBlock, focusPreviousBlock, focusNextBlock, focusBlockId, clearFocusBlock, setFocusBlock } = usePage();
     const contentRef = useRef<HTMLDivElement>(null);
     const icon = block.icon || '💡';
 
@@ -63,6 +63,14 @@ export function CalloutBlock({ block }: CalloutBlockProps) {
             return;
         }
 
+        if (e.key === 'Enter' && !e.shiftKey && text.trim() === '---') {
+            e.preventDefault();
+            updateBlock(block.id, { type: 'divider', rich_text: [] });
+            const newId = addBlock('paragraph', block.id);
+            setFocusBlock(newId);
+            return;
+        }
+
         // Arrow navigation
         if (e.key === 'ArrowUp' && isAtFirstLine(contentRef.current)) {
             e.preventDefault();
@@ -73,6 +81,12 @@ export function CalloutBlock({ block }: CalloutBlockProps) {
         if (e.key === 'ArrowDown' && isAtLastLine(contentRef.current)) {
             e.preventDefault();
             focusNextBlock(block.id);
+            return;
+        }
+
+        if (e.key === 'Enter' && !e.shiftKey && contentRef.current && isAtBlockStart(contentRef.current)) {
+            const newId = addBlock('callout', block.id);
+            setFocusBlock(newId);
             return;
         }
 

@@ -3,14 +3,14 @@ import { usePage } from '../../context/PageContext';
 import type { EditorBlock } from '../../types/types';
 import { richTextEquals, serializeRichTextFromElement, setElementRichText } from '../../utils/blocks';
 import { parsePastedText, handlePasteIntoBlocks } from '../../utils/paste';
-import { useBlockFocus, isAtFirstLine, isAtLastLine } from '../../utils/useBlockFocus';
+import { useBlockFocus, isAtFirstLine, isAtLastLine, isAtBlockStart } from '../../utils/useBlockFocus';
 
 interface BulletedListBlockProps {
     block: EditorBlock;
 }
 
 export function BulletedListBlock({ block }: BulletedListBlockProps) {
-    const { updateBlock, addBlock, deleteBlock, focusPreviousBlock, focusNextBlock } = usePage();
+    const { updateBlock, addBlock, addBlockBefore, deleteBlock, focusPreviousBlock, focusNextBlock, setFocusBlock } = usePage();
     const contentRef = useBlockFocus(block.id);
 
     useEffect(() => {
@@ -59,7 +59,18 @@ export function BulletedListBlock({ block }: BulletedListBlockProps) {
                 // Exit list on empty
                 updateBlock(block.id, { type: 'paragraph' });
             } else {
-                addBlock('bulleted_list_item', block.id);
+                if (text.trim() === '---') {
+                    updateBlock(block.id, { type: 'divider', rich_text: [] });
+                    const newId = addBlock('paragraph', block.id);
+                    setFocusBlock(newId);
+                    return;
+                }
+                if (contentRef.current && isAtBlockStart(contentRef.current)) {
+                    const newId = addBlockBefore('bulleted_list_item', block.id);
+                    setFocusBlock(newId);
+                } else {
+                    addBlock('bulleted_list_item', block.id);
+                }
             }
         }
 

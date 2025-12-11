@@ -3,14 +3,14 @@ import { usePage } from '../../context/PageContext';
 import type { EditorBlock } from '../../types/types';
 import { richTextEquals, serializeRichTextFromElement, setElementRichText } from '../../utils/blocks';
 import { parsePastedText, handlePasteIntoBlocks } from '../../utils/paste';
-import { useBlockFocus, isAtFirstLine, isAtLastLine } from '../../utils/useBlockFocus';
+import { useBlockFocus, isAtFirstLine, isAtLastLine, isAtBlockStart } from '../../utils/useBlockFocus';
 
 interface ToDoBlockProps {
     block: EditorBlock;
 }
 
 export function ToDoBlock({ block }: ToDoBlockProps) {
-    const { updateBlock, addBlock, deleteBlock, focusPreviousBlock, focusNextBlock } = usePage();
+    const { updateBlock, addBlock, addBlockBefore, deleteBlock, focusPreviousBlock, focusNextBlock, setFocusBlock } = usePage();
     const contentRef = useBlockFocus(block.id);
     const isChecked = block.checked ?? false;
 
@@ -63,7 +63,18 @@ export function ToDoBlock({ block }: ToDoBlockProps) {
             if (text === '') {
                 updateBlock(block.id, { type: 'paragraph' });
             } else {
-                addBlock('to_do', block.id);
+                if (text.trim() === '---') {
+                    updateBlock(block.id, { type: 'divider', rich_text: [] });
+                    const newId = addBlock('paragraph', block.id);
+                    setFocusBlock(newId);
+                    return;
+                }
+                if (contentRef.current && isAtBlockStart(contentRef.current)) {
+                    const newId = addBlockBefore('to_do', block.id);
+                    setFocusBlock(newId);
+                } else {
+                    addBlock('to_do', block.id);
+                }
             }
         }
 
