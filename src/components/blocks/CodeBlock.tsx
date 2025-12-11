@@ -44,9 +44,26 @@ export function CodeBlock({ block }: CodeBlockProps) {
         }
     };
 
+    const sanitizePlain = (input: string): string => {
+        if (!input) return '';
+        let out = input;
+        // Remove span tags if any slipped in
+        out = out.replace(/<\/?span[^>]*>/gi, '');
+        // Remove attribute-like fragments
+        out = out.replace(/\s*\bclass\s*=\s*class\s*=\s*"[^"]*"?/gi, '');
+        out = out.replace(/\s*\bclass\s*=\s*"[^"]*"?/gi, '');
+        out = out.replace(/\s*\bstyle\s*=\s*"[^"]*"?/gi, '');
+        out = out.replace(/\s*\bdata-[\w-]+\s*=\s*"[^"]*"?/gi, '');
+        // Decode entities
+        out = out.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+        // Normalize newlines
+        out = out.replace(/\r\n/g, '\n');
+        return out;
+    };
+
     useEffect(() => {
         if (textareaRef.current) {
-            const blockText = getPlainText(block.rich_text);
+            const blockText = sanitizePlain(getPlainText(block.rich_text));
             if (textareaRef.current.value !== blockText) {
                 textareaRef.current.value = blockText;
             }
@@ -67,7 +84,11 @@ export function CodeBlock({ block }: CodeBlockProps) {
 
     const handleInput = () => {
         if (textareaRef.current) {
-            const text = textareaRef.current.value;
+            const textRaw = textareaRef.current.value;
+            const text = sanitizePlain(textRaw);
+            if (text !== textRaw) {
+                textareaRef.current.value = text;
+            }
             updateBlock(block.id, { rich_text: createRichText(text) });
             autoResize();
 
@@ -114,6 +135,34 @@ export function CodeBlock({ block }: CodeBlockProps) {
         }
     };
 
+    const handlePaste = (e: React.ClipboardEvent) => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        const plain = sanitizePlain(e.clipboardData.getData('text/plain'));
+
+        if (plain) {
+            e.preventDefault();
+            const start = textarea.selectionStart;
+            const end = textarea.selectionEnd;
+            const before = textarea.value.slice(0, start);
+            const after = textarea.value.slice(end);
+            const next = before + plain + after;
+            textarea.value = next;
+
+            // Move caret to end of pasted content
+            const caret = before.length + plain.length;
+            textarea.selectionStart = textarea.selectionEnd = caret;
+
+            updateBlock(block.id, { rich_text: createRichText(next) });
+            autoResize();
+
+            if (highlightRef.current) {
+                highlightRef.current.innerHTML = highlightCpp(next) + '\n';
+            }
+        }
+    };
+
     return (
         <div className="code-block">
             <div className="code-header">
@@ -128,14 +177,15 @@ export function CodeBlock({ block }: CodeBlockProps) {
                 />
                 <textarea
                     ref={textareaRef}
-                    className="code-input"
-                    onInput={handleInput}
-                    onKeyDown={handleKeyDown}
-                    placeholder="// Write your C++ code here..."
-                    spellCheck={false}
-                    rows={1}
-                />
-            </div>
+                className="code-input"
+                onInput={handleInput}
+                onKeyDown={handleKeyDown}
+                onPaste={handlePaste}
+                placeholder="// Write your C++ code here..."
+                spellCheck={false}
+                rows={1}
+            />
+        </div>
         </div>
     );
 }
