@@ -1,12 +1,35 @@
 import { usePage } from '../context/PageContext';
+import { serializeRichTextFromElement } from '../utils/blocks';
 import { PageTitle } from './PageTitle';
 import { Toolbar } from './Toolbar';
 import { FloatingToolbar } from './FloatingToolbar';
 import { BlockRenderer } from './blocks/BlockRenderer';
 
 export function Editor() {
-    const { page } = usePage();
+    const { page, updateBlock } = usePage();
     const blocks = page.blocks;
+
+    const persistSelectionToState = () => {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) {
+            return;
+        }
+
+        const startBlock = selection.anchorNode ? getClosestBlockId(selection.anchorNode) : null;
+        const endBlock = selection.focusNode ? getClosestBlockId(selection.focusNode) : null;
+
+        if (!startBlock || !endBlock || startBlock !== endBlock) {
+            return;
+        }
+
+        const blockElement = document.querySelector<HTMLElement>(`[data-block-id="${startBlock}"] [contenteditable="true"]`);
+        if (!blockElement) {
+            return;
+        }
+
+        const richText = serializeRichTextFromElement(blockElement);
+        updateBlock(startBlock, { rich_text: richText });
+    };
 
     const handleFormat = (format: string) => {
         switch (format) {
@@ -26,6 +49,8 @@ export function Editor() {
                 toggleInlineCode();
                 break;
         }
+
+        persistSelectionToState();
     };
 
     const toggleInlineCode = () => {
@@ -76,7 +101,7 @@ export function Editor() {
                 <PageTitle />
                 <Toolbar />
 
-                <FloatingToolbar onFormat={handleFormat} />
+                <FloatingToolbar onFormat={handleFormat} onColorChange={persistSelectionToState} />
 
                 <div className="blocks-container">
                     {blocks.map((block, index) => (
@@ -91,4 +116,10 @@ export function Editor() {
             </div>
         </div>
     );
+}
+
+function getClosestBlockId(node: Node): string | null {
+    const element = node instanceof HTMLElement ? node : node.parentElement;
+    const wrapper = element?.closest('[data-block-id]');
+    return wrapper ? wrapper.getAttribute('data-block-id') : null;
 }

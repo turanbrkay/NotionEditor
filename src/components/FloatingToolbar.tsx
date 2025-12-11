@@ -2,11 +2,39 @@ import { useState, useEffect, useCallback } from 'react';
 
 interface FloatingToolbarProps {
     onFormat: (format: string) => void;
+    onColorChange?: () => void;
 }
 
-export function FloatingToolbar({ onFormat }: FloatingToolbarProps) {
+const TEXT_COLORS = ['default', 'gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const;
+const BG_COLORS = ['default', 'gray_background', 'brown_background', 'orange_background', 'yellow_background', 'green_background', 'blue_background', 'purple_background', 'pink_background', 'red_background'] as const;
+const COLOR_VALUES: Record<string, string> = {
+    default: '',
+    gray: '#9ca3af',
+    brown: '#b5651d',
+    orange: '#f97316',
+    yellow: '#eab308',
+    green: '#22c55e',
+    blue: '#3b82f6',
+    purple: '#a855f7',
+    pink: '#ec4899',
+    red: '#ef4444',
+    gray_background: '#1f2937',
+    brown_background: '#3b2f2f',
+    orange_background: '#3a2412',
+    yellow_background: '#3b2f0a',
+    green_background: '#0f2e1f',
+    blue_background: '#0f1f3a',
+    purple_background: '#231137',
+    pink_background: '#2f0f1f',
+    red_background: '#3a0f14',
+};
+
+export function FloatingToolbar({ onFormat, onColorChange }: FloatingToolbarProps) {
     const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
     const [hasSelection, setHasSelection] = useState(false);
+    const [showTextColorMenu, setShowTextColorMenu] = useState(false);
+    const [showBgColorMenu, setShowBgColorMenu] = useState(false);
+    const selectionRef = useState<{ current: Range | null }>({ current: null })[0];
 
     const updatePosition = useCallback(() => {
         const selection = window.getSelection();
@@ -38,6 +66,10 @@ export function FloatingToolbar({ onFormat }: FloatingToolbarProps) {
             left: rect.left + rect.width / 2 - 90,
         });
         setHasSelection(true);
+        setShowTextColorMenu(false);
+        setShowBgColorMenu(false);
+        // store selection range so we can restore after clicking menu buttons
+        selectionRef.current = selection.getRangeAt(0).cloneRange();
     }, []);
 
     useEffect(() => {
@@ -60,6 +92,60 @@ export function FloatingToolbar({ onFormat }: FloatingToolbarProps) {
     if (!hasSelection || !position) {
         return null;
     }
+
+    const applyColorToSelection = (color: string) => {
+        const selection = window.getSelection();
+        let range: Range | null = null;
+
+        const sel = selection || window.getSelection();
+        if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+            range = sel.getRangeAt(0);
+        } else if (selectionRef.current && sel) {
+            range = selectionRef.current;
+            sel.removeAllRanges();
+            sel.addRange(range);
+        } else {
+            return;
+        }
+
+        if (!range) return;
+
+        const span = document.createElement('span');
+        span.className = 'rt-color';
+        if (color !== 'default') {
+            span.classList.add(`rt-color-${color}`);
+            // Apply inline style so it is immediately visible even if CSS fails to load
+            if (color.endsWith('_background')) {
+                span.style.backgroundColor = COLOR_VALUES[color];
+            } else {
+                span.style.color = COLOR_VALUES[color];
+            }
+        } else {
+            span.style.color = '';
+            span.style.backgroundColor = '';
+        }
+        span.setAttribute('data-color', color);
+
+        try {
+            range.surroundContents(span);
+        } catch {
+            const contents = range.extractContents();
+            span.appendChild(contents);
+            range.insertNode(span);
+        }
+        const finalSel = window.getSelection();
+        if (finalSel) {
+            finalSel.removeAllRanges();
+            finalSel.addRange(range);
+        }
+    };
+
+    const handleColorSelect = (color: string) => {
+        applyColorToSelection(color);
+        setShowTextColorMenu(false);
+        setShowBgColorMenu(false);
+        onColorChange?.();
+    };
 
     const handleClick = (format: string) => (e: React.MouseEvent) => {
         e.preventDefault();
@@ -116,6 +202,75 @@ export function FloatingToolbar({ onFormat }: FloatingToolbarProps) {
             >
                 {'</>'}
             </button>
+            <div className="floating-toolbar-divider" />
+            <button
+                className="floating-toolbar-btn"
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowTextColorMenu((v) => !v);
+                    setShowBgColorMenu(false);
+                }}
+                title="Text color"
+            >
+                A
+            </button>
+            <button
+                className="floating-toolbar-btn"
+                onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setShowBgColorMenu((v) => !v);
+                    setShowTextColorMenu(false);
+                }}
+                title="Background color"
+            >
+                ▇
+            </button>
+            {showTextColorMenu && (
+                <div className="floating-toolbar-color-menu">
+                    <div className="floating-toolbar-color-section">
+                        <div className="floating-toolbar-color-title">Color</div>
+                        <div className="floating-toolbar-color-grid">
+                            {TEXT_COLORS.map((c) => (
+                                <button
+                                    key={c}
+                                    className="floating-toolbar-color-swatch"
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => handleColorSelect(c)}
+                                    data-color={c}
+                                >
+                                    <span className={`rt-color ${c !== 'default' ? `rt-color-${c}` : ''}`}>
+                                        {c === 'default' ? 'Default' : c.replace('_', ' ')}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+            {showBgColorMenu && (
+                <div className="floating-toolbar-color-menu">
+                    <div className="floating-toolbar-color-section">
+                        <div className="floating-toolbar-color-title">Background</div>
+                        <div className="floating-toolbar-color-grid">
+                            {BG_COLORS.map((c) => (
+                                <button
+                                    key={c}
+                                    className="floating-toolbar-color-swatch"
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => handleColorSelect(c)}
+                                    data-color={c}
+                                >
+                                    <span className={`rt-color ${c !== 'default' ? `rt-color-${c}` : ''}`}>
+                                        {c === 'default' ? 'Default' : c.replace('_', ' ')}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

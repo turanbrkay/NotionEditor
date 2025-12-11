@@ -1,50 +1,62 @@
 import type { Page } from '../types/types';
 
-const STORAGE_KEY = 'notion-editor-page';
+const STORAGE_KEY = 'notion-editor-workspace';
+
+export interface WorkspaceState {
+    pages: Page[];
+    currentPageId: string;
+}
 
 /**
- * Save the page to localStorage
+ * Save the workspace (pages + current page id) to localStorage
  */
-export function savePage(page: Page): void {
+export function saveWorkspace(workspace: WorkspaceState): void {
     try {
-        const json = JSON.stringify(page);
+        const json = JSON.stringify(workspace);
         localStorage.setItem(STORAGE_KEY, json);
     } catch (error) {
-        console.error('Failed to save page to localStorage:', error);
+        console.error('Failed to save workspace to localStorage:', error);
     }
 }
 
 /**
- * Load the page from localStorage
- * Returns null if not found or invalid
+ * Load the workspace from localStorage.
+ * Backward compatible with the legacy single-page save.
  */
-export function loadPage(): Page | null {
+export function loadWorkspace(): WorkspaceState | null {
     try {
         const json = localStorage.getItem(STORAGE_KEY);
         if (!json) {
+            // Attempt legacy single-page load
+            const legacy = localStorage.getItem('notion-editor-page');
+            if (!legacy) return null;
+            const page = JSON.parse(legacy) as Page;
+            if (!page?.id || !page.title || !Array.isArray(page.blocks)) {
+                console.warn('Invalid legacy page structure in localStorage, ignoring');
+                return null;
+            }
+            return { pages: [page], currentPageId: page.id };
+        }
+        const ws = JSON.parse(json) as WorkspaceState;
+        if (!ws?.pages || !Array.isArray(ws.pages) || !ws.currentPageId) {
+            console.warn('Invalid workspace structure in localStorage, ignoring');
             return null;
         }
-        const page = JSON.parse(json) as Page;
-        // Basic validation
-        if (!page.id || !page.title || !Array.isArray(page.blocks)) {
-            console.warn('Invalid page structure in localStorage, ignoring');
-            return null;
-        }
-        return page;
+        return ws;
     } catch (error) {
-        console.error('Failed to load page from localStorage:', error);
+        console.error('Failed to load workspace from localStorage:', error);
         return null;
     }
 }
 
 /**
- * Clear the saved page from localStorage
+ * Clear the saved workspace from localStorage
  */
-export function clearSavedPage(): void {
+export function clearSavedWorkspace(): void {
     try {
         localStorage.removeItem(STORAGE_KEY);
     } catch (error) {
-        console.error('Failed to clear page from localStorage:', error);
+        console.error('Failed to clear workspace from localStorage:', error);
     }
 }
 

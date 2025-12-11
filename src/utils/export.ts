@@ -5,13 +5,14 @@ import type {
     Page,
     RichTextText,
 } from '../types/types';
+import { normalizeRichText } from './blocks';
 
 /**
  * Convert an EditorBlock to Notion API format
  * Toggle variants all export as 'toggle' type since Notion doesn't have toggle_heading
  */
 export function editorBlockToNotionBlock(block: EditorBlock): NotionBlockInput {
-    const richText: RichTextText[] = block.rich_text || [];
+    const richText: RichTextText[] = normalizeRichText(block.rich_text);
     const children = block.children?.map(editorBlockToNotionBlock);
 
     switch (block.type) {

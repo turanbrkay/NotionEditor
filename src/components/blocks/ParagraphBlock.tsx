@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { usePage } from '../../context/PageContext';
 import type { EditorBlock } from '../../types/types';
-import { getPlainText, createRichText } from '../../utils/blocks';
+import {
+    createRichText,
+    richTextEquals,
+    serializeRichTextFromElement,
+    setElementRichText,
+} from '../../utils/blocks';
 import { useBlockFocus, isAtFirstLine, isAtLastLine } from '../../utils/useBlockFocus';
 import { SlashMenu } from '../SlashMenu';
 
@@ -16,12 +21,11 @@ export function ParagraphBlock({ block }: ParagraphBlockProps) {
 
     // Sync content with block state
     useEffect(() => {
-        if (contentRef.current) {
-            const currentText = contentRef.current.textContent || '';
-            const blockText = getPlainText(block.rich_text);
-            if (currentText !== blockText) {
-                contentRef.current.textContent = blockText;
-            }
+        if (!contentRef.current) return;
+
+        const current = serializeRichTextFromElement(contentRef.current);
+        if (!richTextEquals(current, block.rich_text || [])) {
+            setElementRichText(contentRef.current, block.rich_text || []);
         }
     }, [block.rich_text, contentRef]);
 
@@ -39,7 +43,7 @@ export function ParagraphBlock({ block }: ParagraphBlockProps) {
                 setShowSlashMenu(false);
             }
 
-            updateBlock(block.id, { rich_text: createRichText(text) });
+            updateBlock(block.id, { rich_text: serializeRichTextFromElement(contentRef.current) });
         }
     };
 

@@ -1,0 +1,274 @@
+{
+  "title": "Untitled",
+  "blocks": [
+    {
+      "type": "paragraph",
+      "paragraph": {
+        "rich_text": [
+          {
+            "type": "text",
+            "text": {
+              "content": "Merhaba ben berkay bu bir denemedir.\n\n"
+            },
+            "annotations": {
+              "bold": false,
+              "italic": false,
+              "strikethrough": false,
+              "underline": false,
+              "code": false
+            },
+            "plain_text": "Merhaba ben berkay bu bir denemedir.\n\n",
+            "href": null
+          }
+        ]
+      }
+    },
+    {
+      "type": "toggle",
+      "toggle": {
+        "rich_text": [
+          {
+            "type": "text",
+            "text": {
+              "content": "hello"
+            },
+            "annotations": {
+              "bold": false,
+              "italic": false,
+              "strikethrough": false,
+              "underline": false,
+              "code": false
+            },
+            "plain_text": "hello",
+            "href": null
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "paragraph",
+          "paragraph": {
+            "rich_text": [
+              {
+                "type": "text",
+                "text": {
+                  "content": "toggle içindeyiz."
+                },
+                "annotations": {
+                  "bold": false,
+                  "italic": false,
+                  "strikethrough": false,
+                  "underline": false,
+                  "code": false
+                },
+                "plain_text": "toggle içindeyiz.",
+                "href": null
+              }
+            ]
+          }
+        },
+        {
+          "type": "code",
+          "code": {
+            "rich_text": [
+              {
+                "type": "text",
+                "text": {
+                  "content": "dsfsfd\nsdfsdf\nsdf"
+                },
+                "annotations": {
+                  "bold": false,
+                  "italic": false,
+                  "strikethrough": false,
+                  "underline": false,
+                  "code": false
+                },
+                "plain_text": "dsfsfd\nsdfsdf\nsdf",
+                "href": null
+              }
+            ],
+            "language": "cpp"
+          }
+        },
+        {
+          "type": "paragraph",
+          "paragraph": {
+            "rich_text": [
+              {
+                "type": "text",
+                "text": {
+                  "content": "dkgflgdf"
+                },
+                "annotations": {
+                  "bold": false,
+                  "italic": false,
+                  "strikethrough": false,
+                  "underline": false,
+                  "code": false
+                },
+                "plain_text": "dkgflgdf",
+                "href": null
+              }
+            ]
+          }
+        },
+        {
+          "type": "toggle",
+          "toggle": {
+            "rich_text": [
+              {
+                "type": "text",
+                "text": {
+                  "content": "hello2"
+                },
+                "annotations": {
+                  "bold": false,
+                  "italic": false,
+                  "strikethrough": false,
+                  "underline": false,
+                  "code": false
+                },
+                "plain_text": "hello2",
+                "href": null
+              }
+            ]
+          },
+          "children": [
+            {
+              "type": "paragraph",
+              "paragraph": {
+                "rich_text": [
+                  {
+                    "type": "text",
+                    "text": {
+                      "content": "dfsdf"
+                    },
+                    "annotations": {
+                      "bold": false,
+                      "italic": false,
+                      "strikethrough": false,
+                      "underline": false,
+                      "code": false
+                    },
+                    "plain_text": "dfsdf",
+                    "href": null
+                  }
+                ]
+              }
+            },
+            {
+              "type": "paragraph",
+              "paragraph": {
+                "rich_text": [
+                  {
+                    "type": "text",
+                    "text": {
+                      "content": "dfsfd"
+                    },
+                    "annotations": {
+                      "bold": false,
+                      "italic": false,
+                      "strikethrough": false,
+                      "underline": false,
+                      "code": false
+                    },
+                    "plain_text": "dfsfd",
+                    "href": null
+                  }
+                ]
+              }
+            },
+            {
+              "type": "quote",
+              "quote": {
+                "rich_text": [
+                  {
+                    "type": "text",
+                    "text": {
+                      "content": "dsfsfdsdfsdf\nsdfsdfsf"
+                    },
+                    "annotations": {
+                      "bold": false,
+                      "italic": false,
+                      "strikethrough": false,
+                      "underline": false,
+                      "code": false
+                    },
+                    "plain_text": "dsfsfdsdfsdf\nsdfsdfsf",
+                    "href": null
+                  }
+                ]
+              }
+            },
+            {
+              "type": "paragraph",
+              "paragraph": {
+                "rich_text": [
+                  {
+                    "type": "text",
+                    "text": {
+                      "content": "dsfsdf"
+                    },
+                    "annotations": {
+                      "bold": false,
+                      "italic": false,
+                      "strikethrough": false,
+                      "underline": false,
+                      "code": false
+                    },
+                    "plain_text": "dsfsdf",
+                    "href": null
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "type": "paragraph",
+          "paragraph": {
+            "rich_text": []
+          }
+        }
+      ]
+    },
+    {
+      "type": "divider",
+      "divider": {}
+    },
+    {
+      "type": "paragraph",
+      "paragraph": {
+        "rich_text": [
+          {
+            "type": "text",
+            "text": {
+              "content": "artık toggledan çıktı bakalım nasıl olmuş"
+            },
+            "annotations": {
+              "bold": false,
+              "italic": false,
+              "strikethrough": false,
+              "underline": false,
+              "code": false
+            },
+            "plain_text": "artık toggledan çıktı bakalım nasıl olmuş",
+            "href": null
+          }
+        ]
+      }
+    },
+    {
+      "type": "paragraph",
+      "paragraph": {
+        "rich_text": []
+      }
+    },
+    {
+      "type": "paragraph",
+      "paragraph": {
+        "rich_text": []
+      }
+    }
+  ]
+}

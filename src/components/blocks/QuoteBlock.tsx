@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { usePage } from '../../context/PageContext';
 import type { EditorBlock } from '../../types/types';
-import { getPlainText, createRichText } from '../../utils/blocks';
+import { richTextEquals, serializeRichTextFromElement, setElementRichText } from '../../utils/blocks';
 import { isAtFirstLine, isAtLastLine } from '../../utils/useBlockFocus';
 
 interface QuoteBlockProps {
@@ -13,12 +13,11 @@ export function QuoteBlock({ block }: QuoteBlockProps) {
     const contentRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        if (contentRef.current) {
-            const blockText = getPlainText(block.rich_text);
-            const currentText = contentRef.current.innerText || '';
-            if (currentText !== blockText) {
-                contentRef.current.innerText = blockText;
-            }
+        if (!contentRef.current) return;
+
+        const current = serializeRichTextFromElement(contentRef.current);
+        if (!richTextEquals(current, block.rich_text || [])) {
+            setElementRichText(contentRef.current, block.rich_text || []);
         }
     }, [block.rich_text]);
 
@@ -37,8 +36,7 @@ export function QuoteBlock({ block }: QuoteBlockProps) {
 
     const handleInput = () => {
         if (contentRef.current) {
-            const text = contentRef.current.innerText || '';
-            updateBlock(block.id, { rich_text: createRichText(text) });
+            updateBlock(block.id, { rich_text: serializeRichTextFromElement(contentRef.current) });
         }
     };
 

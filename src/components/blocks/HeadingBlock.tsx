@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { usePage } from '../../context/PageContext';
 import type { EditorBlock, HeadingBlockType } from '../../types/types';
-import { getPlainText, createRichText } from '../../utils/blocks';
+import { richTextEquals, serializeRichTextFromElement, setElementRichText } from '../../utils/blocks';
 import { useBlockFocus, isAtFirstLine, isAtLastLine } from '../../utils/useBlockFocus';
 
 interface HeadingBlockProps {
@@ -25,19 +25,17 @@ export function HeadingBlock({ block }: HeadingBlockProps) {
     const level = getHeadingLevel(block.type as HeadingBlockType);
 
     useEffect(() => {
-        if (contentRef.current) {
-            const currentText = contentRef.current.textContent || '';
-            const blockText = getPlainText(block.rich_text);
-            if (currentText !== blockText) {
-                contentRef.current.textContent = blockText;
-            }
+        if (!contentRef.current) return;
+
+        const current = serializeRichTextFromElement(contentRef.current);
+        if (!richTextEquals(current, block.rich_text || [])) {
+            setElementRichText(contentRef.current, block.rich_text || []);
         }
     }, [block.rich_text, contentRef]);
 
     const handleInput = () => {
         if (contentRef.current) {
-            const text = contentRef.current.textContent || '';
-            updateBlock(block.id, { rich_text: createRichText(text) });
+            updateBlock(block.id, { rich_text: serializeRichTextFromElement(contentRef.current) });
         }
     };
 

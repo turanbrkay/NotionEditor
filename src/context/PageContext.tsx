@@ -1,15 +1,16 @@
 import React, {
     createContext,
-    useContext,
-    useReducer,
-    useEffect,
     useCallback,
+    useContext,
+    useEffect,
     useMemo,
+    useState,
 } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { BlockType, EditorBlock, Page } from '../types/types';
 import { createBlock } from '../utils/blocks';
-import { savePage, loadPage, debounce } from '../utils/storage';
+import { debounce, loadWorkspace, saveWorkspace } from '../utils/storage';
+import type { WorkspaceState } from '../utils/storage';
 
 // ============================================
 // Constants
@@ -23,7 +24,11 @@ const SAVE_DEBOUNCE_MS = 300;
 // ============================================
 
 interface PageContextValue {
+    pages: Page[];
+    currentPageId: string;
     page: Page;
+    setCurrentPage: (id: string) => void;
+    addPage: () => string;
     focusBlockId: string | null;
     focusPosition: 'start' | 'end' | null;
     clearFocusBlock: () => void;
@@ -50,7 +55,7 @@ interface PageContextValue {
 }
 
 // ============================================
-// Reducer Actions
+// Reducer Actions (per-page)
 // ============================================
 
 type Action =
@@ -183,7 +188,7 @@ function addChildToBlock(
 }
 
 // ============================================
-// Reducer
+// Reducer (per-page)
 // ============================================
 
 function pageReducer(state: Page, action: Action): Page {
@@ -344,10 +349,13 @@ function createInitialPage(): Page {
 }
 
 export function PageProvider({ children }: { children: React.ReactNode }) {
-    const [page, dispatch] = useReducer(pageReducer, null, () => {
-        // Try to load from localStorage on init
-        const saved = loadPage();
-        return saved || createInitialPage();
+    const [workspace, setWorkspace] = useState<WorkspaceState>(() => {
+        const saved = loadWorkspace();
+        if (saved && saved.pages.length > 0) {
+            return saved;
+        }
+        const page = createInitialPage();
+        return { pages: [page], currentPageId: page.id };
     });
 
     // Track which block should be focused (after creation)
@@ -366,98 +374,136 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
 
     // Debounced save to localStorage
     const debouncedSave = useMemo(
-        () => debounce((p: Page) => savePage(p), SAVE_DEBOUNCE_MS),
+        () => debounce((ws: WorkspaceState) => saveWorkspace(ws), SAVE_DEBOUNCE_MS),
         []
     );
 
     // Save on every change
     useEffect(() => {
-        debouncedSave(page);
-    }, [page, debouncedSave]);
+        debouncedSave(workspace);
+    }, [workspace, debouncedSave]);
+
+    const currentPage = useMemo(() => {
+        return workspace.pages.find((p) => p.id === workspace.currentPageId) || workspace.pages[0];
+    }, [workspace]);
+
+    const updateCurrentPage = useCallback(
+        (updater: (page: Page) => Page) => {
+            setWorkspace((ws) => {
+                const idx = ws.pages.findIndex((p) => p.id === ws.currentPageId);
+                if (idx === -1) return ws;
+                const nextPages = [...ws.pages];
+                nextPages[idx] = updater(ws.pages[idx]);
+                return { ...ws, pages: nextPages };
+            });
+        },
+        []
+    );
+
+    const setCurrentPage = useCallback((id: string) => {
+        setWorkspace((ws) => ({
+            ...ws,
+            currentPageId: id,
+        }));
+        setFocusBlockId(null);
+        setFocusPosition(null);
+    }, []);
+
+    const addPage = useCallback((): string => {
+        const page = createInitialPage();
+        setWorkspace((ws) => ({
+            pages: [...ws.pages, page],
+            currentPageId: page.id,
+        }));
+        setFocusBlockId(page.blocks[0]?.id || null);
+        setFocusPosition('start');
+        return page.id;
+    }, []);
 
     // Actions
     const setTitle = useCallback((title: string) => {
-        dispatch({ type: 'SET_TITLE', payload: title });
-    }, []);
+        updateCurrentPage((p) => pageReducer(p, { type: 'SET_TITLE', payload: title }));
+    }, [updateCurrentPage]);
 
     const addBlock = useCallback((type: BlockType, afterId?: string): string => {
         const block = createBlock(type);
-        dispatch({ type: 'ADD_BLOCK', payload: { block, afterId } });
+        updateCurrentPage((p) => pageReducer(p, { type: 'ADD_BLOCK', payload: { block, afterId } }));
         setFocusBlockId(block.id);
         return block.id;
-    }, []);
+    }, [updateCurrentPage]);
 
     const addBlockBefore = useCallback((type: BlockType, beforeId: string): string => {
         const block = createBlock(type);
-        dispatch({ type: 'ADD_BLOCK_BEFORE', payload: { block, beforeId } });
+        updateCurrentPage((p) => pageReducer(p, { type: 'ADD_BLOCK_BEFORE', payload: { block, beforeId } }));
         setFocusBlockId(block.id);
         return block.id;
-    }, []);
+    }, [updateCurrentPage]);
 
     const updateBlock = useCallback((id: string, updates: Partial<EditorBlock>) => {
-        dispatch({ type: 'UPDATE_BLOCK', payload: { id, updates } });
-    }, []);
+        updateCurrentPage((p) => pageReducer(p, { type: 'UPDATE_BLOCK', payload: { id, updates } }));
+    }, [updateCurrentPage]);
 
     const deleteBlock = useCallback((id: string) => {
-        dispatch({ type: 'DELETE_BLOCK', payload: { id } });
-    }, []);
+        updateCurrentPage((p) => pageReducer(p, { type: 'DELETE_BLOCK', payload: { id } }));
+    }, [updateCurrentPage]);
 
     const moveBlockUp = useCallback((id: string) => {
-        dispatch({ type: 'MOVE_BLOCK_UP', payload: { id } });
-    }, []);
+        updateCurrentPage((p) => pageReducer(p, { type: 'MOVE_BLOCK_UP', payload: { id } }));
+    }, [updateCurrentPage]);
 
     const moveBlockDown = useCallback((id: string) => {
-        dispatch({ type: 'MOVE_BLOCK_DOWN', payload: { id } });
-    }, []);
+        updateCurrentPage((p) => pageReducer(p, { type: 'MOVE_BLOCK_DOWN', payload: { id } }));
+    }, [updateCurrentPage]);
 
     const toggleCollapse = useCallback((id: string) => {
-        dispatch({ type: 'TOGGLE_COLLAPSE', payload: { id } });
-    }, []);
+        updateCurrentPage((p) => pageReducer(p, { type: 'TOGGLE_COLLAPSE', payload: { id } }));
+    }, [updateCurrentPage]);
 
     const addChildBlock = useCallback((parentId: string, type: BlockType): string => {
         const block = createBlock(type);
-        dispatch({ type: 'ADD_CHILD_BLOCK', payload: { parentId, block } });
+        updateCurrentPage((p) => pageReducer(p, { type: 'ADD_CHILD_BLOCK', payload: { parentId, block } }));
         setFocusBlockId(block.id);
         return block.id;
-    }, []);
+    }, [updateCurrentPage]);
 
     // Navigation functions for arrow keys
     const focusPreviousBlock = useCallback((currentId: string) => {
-        const index = page.blocks.findIndex(b => b.id === currentId);
+        const index = currentPage.blocks.findIndex(b => b.id === currentId);
         if (index > 0) {
-            setFocusBlockId(page.blocks[index - 1].id);
+            setFocusBlockId(currentPage.blocks[index - 1].id);
             setFocusPosition('end');
         }
-    }, [page.blocks]);
+    }, [currentPage.blocks]);
 
     const focusNextBlock = useCallback((currentId: string) => {
-        const index = page.blocks.findIndex(b => b.id === currentId);
-        if (index >= 0 && index < page.blocks.length - 1) {
-            setFocusBlockId(page.blocks[index + 1].id);
+        const index = currentPage.blocks.findIndex(b => b.id === currentId);
+        if (index >= 0 && index < currentPage.blocks.length - 1) {
+            setFocusBlockId(currentPage.blocks[index + 1].id);
             setFocusPosition('start');
         }
-    }, [page.blocks]);
+    }, [currentPage.blocks]);
 
     // Escape from nested block (toggle child) to main level
     const escapeToMainLevel = useCallback((fromBlockId: string) => {
-        // Find if this block is inside a toggle (nested)
-        const result = findBlockAndParent(page.blocks, fromBlockId);
+        const result = findBlockAndParent(currentPage.blocks, fromBlockId);
         if (result && result.parentBlock) {
-            // This block is nested - find the parent toggle and add block after it
             const newBlock = createBlock('paragraph');
-            dispatch({ type: 'ADD_BLOCK', payload: { block: newBlock, afterId: result.parentBlock.id } });
+            updateCurrentPage((p) => pageReducer(p, { type: 'ADD_BLOCK', payload: { block: newBlock, afterId: result.parentBlock!.id } }));
             setFocusBlockId(newBlock.id);
         } else {
-            // Not nested - just add block after current
             const newBlock = createBlock('paragraph');
-            dispatch({ type: 'ADD_BLOCK', payload: { block: newBlock, afterId: fromBlockId } });
+            updateCurrentPage((p) => pageReducer(p, { type: 'ADD_BLOCK', payload: { block: newBlock, afterId: fromBlockId } }));
             setFocusBlockId(newBlock.id);
         }
-    }, [page.blocks]);
+    }, [currentPage.blocks, updateCurrentPage]);
 
     const value = useMemo<PageContextValue>(
         () => ({
-            page,
+            pages: workspace.pages,
+            currentPageId: currentPage.id,
+            page: currentPage,
+            setCurrentPage,
+            addPage,
             focusBlockId,
             focusPosition,
             clearFocusBlock,
@@ -476,7 +522,10 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
             focusNextBlock,
         }),
         [
-            page,
+            workspace.pages,
+            currentPage.id,
+            setCurrentPage,
+            addPage,
             focusBlockId,
             focusPosition,
             clearFocusBlock,

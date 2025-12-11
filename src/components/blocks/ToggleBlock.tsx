@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { usePage } from '../../context/PageContext';
 import type { EditorBlock, ToggleBlockType } from '../../types/types';
-import { getPlainText, createRichText } from '../../utils/blocks';
+import { richTextEquals, serializeRichTextFromElement, setElementRichText } from '../../utils/blocks';
 import { BlockRenderer } from './BlockRenderer';
 import { isAtFirstLine, isAtLastLine } from '../../utils/useBlockFocus';
 
@@ -30,12 +30,11 @@ export function ToggleBlock({ block }: ToggleBlockProps) {
 
     // Sync content with block state
     useEffect(() => {
-        if (contentRef.current) {
-            const currentText = contentRef.current.textContent || '';
-            const blockText = getPlainText(block.rich_text);
-            if (currentText !== blockText) {
-                contentRef.current.textContent = blockText;
-            }
+        if (!contentRef.current) return;
+
+        const current = serializeRichTextFromElement(contentRef.current);
+        if (!richTextEquals(current, block.rich_text || [])) {
+            setElementRichText(contentRef.current, block.rich_text || []);
         }
     }, [block.rich_text]);
 
@@ -55,8 +54,7 @@ export function ToggleBlock({ block }: ToggleBlockProps) {
 
     const handleInput = () => {
         if (contentRef.current) {
-            const text = contentRef.current.textContent || '';
-            updateBlock(block.id, { rich_text: createRichText(text) });
+            updateBlock(block.id, { rich_text: serializeRichTextFromElement(contentRef.current) });
         }
     };
 
