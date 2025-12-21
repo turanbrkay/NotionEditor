@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { usePage } from '../context/PageContext';
 import { serializeRichTextFromElement } from '../utils/blocks';
 import {
@@ -20,11 +20,16 @@ export function Editor() {
         selectedBlockIds,
         clearSelectedBlocks,
         selectAllBlocks,
+        selectBlockRangeByIds,
         deleteBlocksById,
         insertBlocksAfter,
         setFocusBlock,
     } = usePage();
     const blocks = page.blocks;
+
+    // Refs for drag selection state (persist across re-renders)
+    const dragStartBlockIdRef = useRef<string | null>(null);
+    const isDraggingRef = useRef(false);
 
     const getOrderedSelection = useCallback(() => {
         if (!selectedBlockIds.length) return [];
@@ -244,27 +249,70 @@ export function Editor() {
         };
 
         const handleMouseDown = (e: MouseEvent) => {
-            if (!selectedBlockIds.length) return;
-            const target = e.target as HTMLElement | null;
-            if (!target) return;
-            if (target.closest('.block-handle')) return;
-            const insideWrapper = target.closest('.block-wrapper');
-            const insideEditable = target.closest('[contenteditable="true"]') || target.closest('textarea');
-            if (!insideWrapper || insideEditable) {
-                clearSelectedBlocks();
+            // Clear selection if clicking in editable area while blocks are selected
+            if (selectedBlockIds.length > 0) {
+                const target = e.target as HTMLElement | null;
+                if (target) {
+                    if (target.closest('.block-handle')) return;
+                    const insideEditable = target.closest('[contenteditable="true"]') || target.closest('textarea');
+                    if (insideEditable) {
+                        clearSelectedBlocks();
+                    }
+                }
             }
+
+            // Track starting block for potential drag selection
+            const target = e.target as HTMLElement | null;
+            if (target && e.button === 0) { // Left mouse button
+                const blockId = getClosestBlockId(target);
+                if (blockId) {
+                    dragStartBlockIdRef.current = blockId;
+                    isDraggingRef.current = true;
+                }
+            }
+        };
+
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isDraggingRef.current || !dragStartBlockIdRef.current || e.buttons !== 1) {
+                isDraggingRef.current = false;
+                return;
+            }
+
+            const target = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+            if (!target) return;
+
+            const currentBlockId = getClosestBlockId(target);
+
+            // If mouse has moved to a different block, trigger block selection
+            if (currentBlockId && currentBlockId !== dragStartBlockIdRef.current) {
+                // Clear native text selection
+                const selection = window.getSelection();
+                selection?.removeAllRanges();
+
+                // Select the range of blocks
+                selectBlockRangeByIds(dragStartBlockIdRef.current, currentBlockId);
+            }
+        };
+
+        const handleMouseUp = () => {
+            isDraggingRef.current = false;
+            dragStartBlockIdRef.current = null;
         };
 
         window.addEventListener('copy', handleCopy);
         window.addEventListener('cut', handleCut);
         window.addEventListener('paste', handlePaste);
         window.addEventListener('mousedown', handleMouseDown);
+        window.addEventListener('mousemove', handleMouseMove);
+        window.addEventListener('mouseup', handleMouseUp);
 
         return () => {
             window.removeEventListener('copy', handleCopy);
             window.removeEventListener('cut', handleCut);
             window.removeEventListener('paste', handlePaste);
             window.removeEventListener('mousedown', handleMouseDown);
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
         };
     }, [
         clearSelectedBlocks,
@@ -272,6 +320,7 @@ export function Editor() {
         deleteSelectedBlocks,
         getInsertionTargetId,
         insertBlocksAfter,
+        selectBlockRangeByIds,
         selectedBlockIds.length,
         setFocusBlock,
     ]);

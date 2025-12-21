@@ -37,6 +37,7 @@ interface PageContextValue {
     selectedBlockIds: string[];
     setSelectedBlocks: (ids: string[]) => void;
     selectBlockRange: (targetId: string) => void;
+    selectBlockRangeByIds: (startId: string, endId: string) => void;
     clearSelectedBlocks: () => void;
     selectAllBlocks: () => void;
     // Page operations
@@ -505,6 +506,20 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
         setSelectedBlocks(ids);
     }, [currentPage.blocks, setSelectedBlocks]);
 
+    const selectBlockRangeByIds = useCallback((startId: string, endId: string) => {
+        const order = flattenBlocks(currentPage.blocks).map((b) => b.id);
+        const startIndex = order.indexOf(startId);
+        const endIndex = order.indexOf(endId);
+        if (startIndex === -1 || endIndex === -1) return;
+
+        const [begin, finish] = startIndex < endIndex
+            ? [startIndex, endIndex]
+            : [endIndex, startIndex];
+        const ids = order.slice(begin, finish + 1);
+        setSelectedBlocks(ids);
+        setSelectionAnchorId(startId);
+    }, [currentPage.blocks, setSelectedBlocks]);
+
     const setCurrentPage = useCallback((id: string) => {
         setWorkspace((ws) => ({
             ...ws,
@@ -685,6 +700,7 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
             selectedBlockIds,
             setSelectedBlocks,
             selectBlockRange,
+            selectBlockRangeByIds,
             clearSelectedBlocks,
             selectAllBlocks,
             setTitle,
@@ -715,6 +731,7 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
             selectedBlockIds,
             setSelectedBlocks,
             selectBlockRange,
+            selectBlockRangeByIds,
             clearSelectedBlocks,
             selectAllBlocks,
             setTitle,
