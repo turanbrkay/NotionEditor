@@ -243,4 +243,17 @@ export function handlePasteIntoBlocks(
     });
 
     opts.setFocusBlock(lastId);
+
+    // Position cursor at end after DOM updates
+    setTimeout(() => {
+        const blockEl = document.querySelector(`[data-block-id="${lastId}"] [contenteditable]`);
+        if (blockEl) {
+            const range = document.createRange();
+            const sel = window.getSelection();
+            range.selectNodeContents(blockEl);
+            range.collapse(false); // collapse to end
+            sel?.removeAllRanges();
+            sel?.addRange(range);
+        }
+    }, 0);
 }

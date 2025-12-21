@@ -19,7 +19,7 @@ import type { WorkspaceState } from '../utils/storage';
 
 const DEFAULT_TITLE = 'Untitled';
 const SAVE_DEBOUNCE_MS = 300;
-const HISTORY_LIMIT = 50;
+const HISTORY_LIMIT = 500;
 const HISTORY_DEBOUNCE_MS = 500; // Group rapid changes into single undo
 
 // ============================================
@@ -36,7 +36,7 @@ interface PageContextValue {
     focusBlockId: string | null;
     focusPosition: 'start' | 'end' | null;
     clearFocusBlock: () => void;
-    setFocusBlock: (id: string) => void;
+    setFocusBlock: (id: string, position?: 'start' | 'end') => void;
     selectedBlockIds: string[];
     setSelectedBlocks: (ids: string[]) => void;
     selectBlockRange: (targetId: string) => void;
@@ -462,9 +462,9 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
         setFocusPosition(null);
     }, []);
 
-    const setFocusBlock = useCallback((id: string) => {
+    const setFocusBlock = useCallback((id: string, position: 'start' | 'end' = 'end') => {
         setFocusBlockId(id);
-        setFocusPosition('start');
+        setFocusPosition(position);
     }, []);
 
     const clearSelectedBlocks = useCallback(() => {
@@ -700,6 +700,22 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
         const selectedIndices = order
             .map((bid, idx) => (idsSet.has(bid) ? idx : -1))
             .filter((idx) => idx >= 0);
+
+        // Check if we're deleting all blocks
+        const remainingBlocks = order.filter((bid) => !idsSet.has(bid));
+
+        if (remainingBlocks.length === 0) {
+            // All blocks being deleted - create a new empty paragraph
+            const newBlock = createBlock('paragraph');
+            updateCurrentPage((p) => ({
+                ...p,
+                blocks: [newBlock],
+            }));
+            clearSelectedBlocks();
+            setFocusBlockId(newBlock.id);
+            setFocusPosition('start');
+            return;
+        }
 
         updateCurrentPage((p) => ({
             ...p,

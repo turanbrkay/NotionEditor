@@ -221,7 +221,8 @@ export function Editor() {
                     return;
                 }
 
-                if (meta && e.key.toLowerCase() === 'a' && isFullBlockSelection()) {
+                // Ctrl+A always selects all blocks
+                if (meta && e.key.toLowerCase() === 'a') {
                     e.preventDefault();
                     selectAllBlocks();
                     return;
