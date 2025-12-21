@@ -49,6 +49,8 @@ interface PageContextValue {
     addBlock: (type: BlockType, afterId?: string, skipHistory?: boolean) => string;
     addBlockBefore: (type: BlockType, beforeId: string) => string;
     updateBlock: (id: string, updates: Partial<EditorBlock>, skipHistory?: boolean) => void;
+    convertBlocksToType: (ids: string[], type: BlockType) => void;
+    mergeBlocksIntoSingle: (ids: string[], type: BlockType) => void;
     deleteBlock: (id: string) => void;
     deleteBlocksById: (ids: string[]) => void;
     insertBlocksAfter: (targetId: string | null, blocks: EditorBlock[], skipHistory?: boolean) => string[];
@@ -687,6 +689,103 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
         updateCurrentPage((p) => pageReducer(p, { type: 'UPDATE_BLOCK', payload: { id, updates } }), skipHistory);
     }, [updateCurrentPage]);
 
+    // Convert multiple blocks to a specified type (atomic operation)
+    const convertBlocksToType = useCallback((ids: string[], type: BlockType) => {
+        if (ids.length === 0) return;
+
+        // Push history once before all changes
+        pushHistory();
+
+        // Update each block with skipHistory=true
+        ids.forEach((id) => {
+            const updates: Partial<EditorBlock> = { type };
+            // Add type-specific defaults
+            if (type === 'to_do') {
+                updates.checked = false;
+            }
+            if (type === 'code') {
+                updates.language = 'cpp';
+            }
+            if (type === 'callout') {
+                updates.icon = '💡';
+            }
+            if (type.startsWith('toggle')) {
+                updates.collapsed = false;
+                updates.children = updates.children || [];
+            }
+            updateCurrentPage((p) => pageReducer(p, { type: 'UPDATE_BLOCK', payload: { id, updates } }), true);
+        });
+
+        clearSelectedBlocks();
+    }, [clearSelectedBlocks, pushHistory, updateCurrentPage]);
+
+    // Merge multiple blocks into a single block (for code/quote)
+    const mergeBlocksIntoSingle = useCallback((ids: string[], type: BlockType) => {
+        if (ids.length === 0) return;
+
+        // Get blocks in order
+        const allBlocks = flattenBlocks(currentPage.blocks);
+        const selectedBlocks = allBlocks.filter((b) => ids.includes(b.id));
+
+        if (selectedBlocks.length === 0) return;
+
+        // Push history once before all changes
+        pushHistory();
+
+        // Combine all text content with newlines
+        const combinedText = selectedBlocks
+            .map((block) => {
+                if (!block.rich_text) return '';
+                return block.rich_text.map((rt) => rt.plain_text || '').join('');
+            })
+            .join('\n');
+
+        // Keep the first block, update it with combined content
+        const firstId = selectedBlocks[0].id;
+        const combinedRichText = [{
+            type: 'text' as const,
+            text: { content: combinedText },
+            annotations: {
+                bold: false,
+                italic: false,
+                strikethrough: false,
+                underline: false,
+                code: false,
+                color: 'default' as const,
+            },
+            plain_text: combinedText,
+            href: null,
+        }];
+
+        const updates: Partial<EditorBlock> = {
+            type,
+            rich_text: combinedRichText,
+        };
+
+        if (type === 'code') {
+            updates.language = 'cpp';
+        }
+        if (type === 'callout') {
+            updates.icon = '💡';
+        }
+
+        updateCurrentPage((p) => pageReducer(p, { type: 'UPDATE_BLOCK', payload: { id: firstId, updates } }), true);
+
+        // Delete all other selected blocks
+        const idsToDelete = selectedBlocks.slice(1).map((b) => b.id);
+        const idsSet = new Set(idsToDelete);
+        if (idsToDelete.length > 0) {
+            updateCurrentPage((p) => ({
+                ...p,
+                blocks: deleteBlocksFromTreeSet(p.blocks, idsSet),
+            }), true);
+        }
+
+        clearSelectedBlocks();
+        setFocusBlockId(firstId);
+        setFocusPosition('end');
+    }, [clearSelectedBlocks, currentPage.blocks, pushHistory, updateCurrentPage]);
+
     const deleteBlock = useCallback((id: string) => {
         updateCurrentPage((p) => pageReducer(p, { type: 'DELETE_BLOCK', payload: { id } }));
         clearSelectedBlocks();
@@ -928,6 +1027,8 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
             addBlock,
             addBlockBefore,
             updateBlock,
+            convertBlocksToType,
+            mergeBlocksIntoSingle,
             deleteBlock,
             deleteBlocksById,
             insertBlocksAfter,
@@ -964,6 +1065,8 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
             addBlock,
             addBlockBefore,
             updateBlock,
+            convertBlocksToType,
+            mergeBlocksIntoSingle,
             deleteBlock,
             deleteBlocksById,
             insertBlocksAfter,

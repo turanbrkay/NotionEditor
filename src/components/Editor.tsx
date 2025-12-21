@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePage } from '../context/PageContext';
 import { serializeRichTextFromElement } from '../utils/blocks';
 import {
@@ -12,6 +12,66 @@ import {
 import { PageTitle } from './PageTitle';
 import { FloatingToolbar } from './FloatingToolbar';
 import { BlockRenderer } from './blocks/BlockRenderer';
+
+// Color constants
+const TEXT_COLORS = ['default', 'gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const;
+const BG_COLORS = ['default', 'gray_background', 'brown_background', 'orange_background', 'yellow_background', 'green_background', 'blue_background', 'purple_background', 'pink_background', 'red_background'] as const;
+
+// Color menu styles
+const colorMenuStyle: React.CSSProperties = {
+    position: 'absolute',
+    top: '100%',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    marginTop: '4px',
+    backgroundColor: '#2d2d2d',
+    borderRadius: '6px',
+    padding: '6px',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(5, 1fr)',
+    gap: '4px',
+    zIndex: 1001,
+    border: '1px solid #444',
+};
+
+const colorSwatchStyle = (color: string): React.CSSProperties => ({
+    width: '24px',
+    height: '24px',
+    borderRadius: '4px',
+    border: 'none',
+    cursor: 'pointer',
+    backgroundColor: getColorValue(color),
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#fff',
+    fontSize: '12px',
+});
+
+const getColorValue = (color: string): string => {
+    const colorMap: Record<string, string> = {
+        default: '#666',
+        gray: '#9ca3af',
+        brown: '#b5651d',
+        orange: '#f97316',
+        yellow: '#eab308',
+        green: '#22c55e',
+        blue: '#3b82f6',
+        purple: '#a855f7',
+        pink: '#ec4899',
+        red: '#ef4444',
+        gray_background: '#374151',
+        brown_background: '#78350f',
+        orange_background: '#7c2d12',
+        yellow_background: '#713f12',
+        green_background: '#14532d',
+        blue_background: '#1e3a8a',
+        purple_background: '#581c87',
+        pink_background: '#831843',
+        red_background: '#7f1d1d',
+    };
+    return colorMap[color] || color;
+};
 
 export function Editor() {
     const {
@@ -27,12 +87,19 @@ export function Editor() {
         pushHistory,
         undo,
         redo,
+        convertBlocksToType,
+        mergeBlocksIntoSingle,
     } = usePage();
     const blocks = page.blocks;
+
+    // Color menu states
+    const [showTextColorMenu, setShowTextColorMenu] = useState(false);
+    const [showBgColorMenu, setShowBgColorMenu] = useState(false);
 
     // Refs for drag selection state (persist across re-renders)
     const dragStartBlockIdRef = useRef<string | null>(null);
     const isDraggingRef = useRef(false);
+
 
     const getOrderedSelection = useCallback(() => {
         if (!selectedBlockIds.length) return [];
@@ -43,6 +110,36 @@ export function Editor() {
         if (selectedBlockIds.length === 0) return;
         deleteBlocksById(selectedBlockIds);
     }, [deleteBlocksById, selectedBlockIds]);
+
+    // Apply color to all selected blocks
+    const applyColorToBlocks = useCallback((color: string, type: 'text' | 'bg') => {
+        if (selectedBlockIds.length === 0) return;
+
+        // Push history for atomic undo
+        pushHistory();
+
+        selectedBlockIds.forEach((blockId) => {
+            // Find the block
+            const block = blocks.find((b) => b.id === blockId);
+            if (!block || !block.rich_text) return;
+
+            // Update each rich_text item with the new color
+            const updatedRichText = block.rich_text.map((rt) => ({
+                ...rt,
+                annotations: {
+                    ...rt.annotations,
+                    color: type === 'bg' ? color : (color === 'default' ? 'default' : color),
+                },
+            }));
+
+            updateBlock(blockId, { rich_text: updatedRichText }, true);
+        });
+
+        // Close menus
+        setShowTextColorMenu(false);
+        setShowBgColorMenu(false);
+        clearSelectedBlocks();
+    }, [blocks, clearSelectedBlocks, pushHistory, selectedBlockIds, updateBlock]);
 
     const copySelectedBlocksToClipboard = useCallback((clipboard: DataTransfer | null): boolean => {
         if (!clipboard) return false;
@@ -118,39 +215,64 @@ export function Editor() {
 
         const range = selection.getRangeAt(0);
 
-        // Check if selection is inside an inline-code span
-        const container = range.commonAncestorContainer;
-        const inlineCodeParent = container.nodeType === Node.TEXT_NODE
-            ? container.parentElement?.closest('.inline-code')
-            : (container as Element).closest?.('.inline-code');
+        // Find the closest inline-code parent from either end of the selection
+        const findInlineCodeParent = (node: Node): Element | null => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                return node.parentElement?.closest('.inline-code') || null;
+            }
+            return (node as Element).closest?.('.inline-code') || null;
+        };
+
+        const startCodeParent = findInlineCodeParent(range.startContainer);
+        const endCodeParent = findInlineCodeParent(range.endContainer);
+
+        // Use the innermost inline-code parent (prefer startCodeParent)
+        const inlineCodeParent = startCodeParent || endCodeParent;
 
         if (inlineCodeParent) {
-            // Already in inline code - remove the formatting
+            // Already in inline code - REMOVE the formatting
             const parent = inlineCodeParent.parentNode;
             if (parent) {
-                // Move children out and remove the span
+                // Move all children out of the span (preserves <br> and other elements)
+                const firstChild = inlineCodeParent.firstChild;
+                const lastChild = inlineCodeParent.lastChild;
+
                 while (inlineCodeParent.firstChild) {
                     parent.insertBefore(inlineCodeParent.firstChild, inlineCodeParent);
                 }
                 parent.removeChild(inlineCodeParent);
+
                 // Normalize to merge adjacent text nodes
                 parent.normalize();
+
+                // Update selection to span the moved content
+                if (firstChild && lastChild) {
+                    const newRange = document.createRange();
+                    newRange.setStartBefore(firstChild);
+                    newRange.setEndAfter(lastChild);
+                    selection.removeAllRanges();
+                    selection.addRange(newRange);
+                }
             }
         } else {
-            // Not in inline code - apply formatting
+            // Not in inline code - APPLY formatting
+            const span = document.createElement('span');
+            span.className = 'inline-code';
+
             try {
-                const span = document.createElement('span');
-                span.className = 'inline-code';
                 range.surroundContents(span);
             } catch {
-                // If surroundContents fails (partial selection across elements),
-                // extract and wrap the contents
+                // If surroundContents fails, extract and wrap
                 const contents = range.extractContents();
-                const span = document.createElement('span');
-                span.className = 'inline-code';
                 span.appendChild(contents);
                 range.insertNode(span);
             }
+
+            // Update selection to be inside the new span
+            const newRange = document.createRange();
+            newRange.selectNodeContents(span);
+            selection.removeAllRanges();
+            selection.addRange(newRange);
         }
     };
 
@@ -359,6 +481,86 @@ export function Editor() {
         <div className="page-container">
             <div className="page-content">
                 <PageTitle />
+                {/* Block Selection Toolbar - shown when multiple blocks are selected */}
+                {selectedBlockIds.length > 0 && (
+                    <div className="block-selection-toolbar" style={{
+                        position: 'fixed',
+                        top: '60px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        backgroundColor: '#1e1e1e',
+                        borderRadius: '8px',
+                        padding: '8px 12px',
+                        display: 'flex',
+                        gap: '8px',
+                        alignItems: 'center',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                        zIndex: 1000,
+                        border: '1px solid #333',
+                    }}>
+                        <span style={{ color: '#999', fontSize: '12px', marginRight: '8px' }}>
+                            {selectedBlockIds.length} seçili
+                        </span>
+                        <button onClick={() => convertBlocksToType(selectedBlockIds, 'bulleted_list_item')} style={toolbarBtnStyle} title="Bullet List">
+                            •
+                        </button>
+                        <button onClick={() => convertBlocksToType(selectedBlockIds, 'numbered_list_item')} style={toolbarBtnStyle} title="Numbered List">
+                            1.
+                        </button>
+                        <button onClick={() => convertBlocksToType(selectedBlockIds, 'to_do')} style={toolbarBtnStyle} title="To-do">
+                            ☐
+                        </button>
+                        <button onClick={() => convertBlocksToType(selectedBlockIds, 'paragraph')} style={toolbarBtnStyle} title="Text">
+                            P
+                        </button>
+                        <button onClick={() => convertBlocksToType(selectedBlockIds, 'heading_1')} style={toolbarBtnStyle} title="Heading 1">
+                            H1
+                        </button>
+                        <button onClick={() => convertBlocksToType(selectedBlockIds, 'heading_2')} style={toolbarBtnStyle} title="Heading 2">
+                            H2
+                        </button>
+                        <button onClick={() => mergeBlocksIntoSingle(selectedBlockIds, 'quote')} style={toolbarBtnStyle} title="Quote (merge)">
+                            "
+                        </button>
+                        <button onClick={() => mergeBlocksIntoSingle(selectedBlockIds, 'code')} style={{ ...toolbarBtnStyle, fontFamily: 'monospace', fontSize: '11px' }} title="Code (merge)">
+                            {'</>'}
+                        </button>
+                        <div style={{ width: '1px', height: '20px', backgroundColor: '#444' }} />
+                        {/* Color dropdowns */}
+                        <div style={{ position: 'relative' }}>
+                            <button onClick={() => setShowTextColorMenu(prev => !prev)} style={toolbarBtnStyle} title="Text Color">
+                                A
+                            </button>
+                            {showTextColorMenu && (
+                                <div style={colorMenuStyle}>
+                                    {TEXT_COLORS.map(color => (
+                                        <button key={color} onClick={() => applyColorToBlocks(color, 'text')} style={colorSwatchStyle(color)}>
+                                            {color === 'default' ? '⊘' : ''}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div style={{ position: 'relative' }}>
+                            <button onClick={() => setShowBgColorMenu(prev => !prev)} style={toolbarBtnStyle} title="Background Color">
+                                ▇
+                            </button>
+                            {showBgColorMenu && (
+                                <div style={colorMenuStyle}>
+                                    {BG_COLORS.map(color => (
+                                        <button key={color} onClick={() => applyColorToBlocks(color, 'bg')} style={colorSwatchStyle(color)}>
+                                            {color === 'default' ? '⊘' : ''}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div style={{ width: '1px', height: '20px', backgroundColor: '#444' }} />
+                        <button onClick={deleteSelectedBlocks} style={{ ...toolbarBtnStyle, color: '#ef4444' }} title="Delete">
+                            🗑
+                        </button>
+                    </div>
+                )}
                 <FloatingToolbar
                     onFormat={handleFormat}
                     onColorChange={persistSelectionToState}
@@ -382,6 +584,17 @@ export function Editor() {
     );
 }
 
+const toolbarBtnStyle: React.CSSProperties = {
+    background: 'transparent',
+    border: 'none',
+    color: '#ddd',
+    padding: '6px 10px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: 500,
+};
+
 function getClosestBlockId(node: Node): string | null {
     const element = node instanceof HTMLElement ? node : node.parentElement;
     const wrapper = element?.closest('[data-block-id]');
@@ -392,3 +605,4 @@ function getEditableAncestor(node: Node): HTMLElement | null {
     const element = node instanceof HTMLElement ? node : node.parentElement;
     return element?.closest?.('[contenteditable="true"]') || null;
 }
+

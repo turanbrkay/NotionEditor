@@ -105,6 +105,34 @@ export function ParagraphBlock({ block }: ParagraphBlockProps) {
                 return;
             }
 
+            // Split block at cursor position
+            if (contentRef.current) {
+                const selection = window.getSelection();
+                if (selection && selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+
+                    // Create a range for content after cursor
+                    const afterRange = document.createRange();
+                    afterRange.setStart(range.endContainer, range.endOffset);
+                    afterRange.setEndAfter(contentRef.current.lastChild || contentRef.current);
+
+                    // Extract the content after cursor
+                    const afterContent = afterRange.extractContents();
+                    const tempDiv = document.createElement('div');
+                    tempDiv.appendChild(afterContent);
+                    const afterText = tempDiv.textContent || '';
+
+                    // Update current block with remaining content
+                    updateBlock(block.id, { rich_text: serializeRichTextFromElement(contentRef.current) });
+
+                    // Create new block with the extracted content
+                    const newId = addBlock('paragraph', block.id);
+                    updateBlock(newId, { rich_text: [{ type: 'text', text: { content: afterText }, annotations: { bold: false, italic: false, strikethrough: false, underline: false, code: false, color: 'default' }, plain_text: afterText, href: null }] });
+                    setFocusBlock(newId, 'start');
+                    return;
+                }
+            }
+
             addBlock('paragraph', block.id);
         }
 
