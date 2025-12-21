@@ -932,43 +932,88 @@ body {
 .image-block {
   width: 100%;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-}
-
-.image-frame {
-  width: 100%;
-  display: flex;
   justify-content: center;
-  padding: 6px 0;
+  padding: 8px 0;
   outline: none;
 }
 
-.image-frame:focus {
-  outline: 2px solid var(--color-focus-ring);
-  outline-offset: 4px;
+.image-block:focus {
+  outline: none;
+}
+
+.image-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.image-wrapper:hover .image-resize-handle {
+  opacity: 1;
 }
 
 .image-block-img {
   display: block;
+  width: 100%;
   height: auto;
-  max-width: 100%;
-  border-radius: 10px;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+  border-radius: 8px;
+  user-select: none;
+}
+
+.image-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 12px;
+  cursor: ew-resize;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+}
+
+.image-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 2px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.image-resize-handle--left {
+  left: -6px;
+}
+
+.image-resize-handle--left::after {
+  left: 4px;
+}
+
+.image-resize-handle--right {
+  right: -6px;
+}
+
+.image-resize-handle--right::after {
+  right: 4px;
+}
+
+.image-resize-handle.active,
+.image-resize-handle:hover {
+  opacity: 1;
 }
 
 .image-placeholder {
   width: 100%;
-  max-width: 520px;
-  padding: 16px;
-  border: 1px dashed var(--color-border);
-  border-radius: 10px;
+  max-width: 400px;
+  padding: 40px 20px;
+  border: 2px dashed var(--color-border);
+  border-radius: 8px;
   background: transparent;
   color: var(--color-text-secondary);
   cursor: pointer;
   text-align: center;
-  transition: border-color var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+  font-size: 14px;
+  transition: all 0.15s ease;
 }
 
 .image-placeholder:hover {
@@ -977,70 +1022,31 @@ body {
   background: var(--color-hover-bg);
 }
 
-.image-resize {
+/* Image upload loading indicator */
+.image-uploading {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 10px;
-  width: 100%;
-  max-width: 520px;
-  opacity: 0.65;
-  transition: opacity var(--transition-fast);
-}
-
-.image-resize--active {
-  opacity: 1;
-}
-
-.image-resize input[type="range"] {
-  flex: 1;
-  accent-color: var(--color-accent);
-}
-
-.image-resize input[type="range"]:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.image-resize-value {
-  min-width: 48px;
-  text-align: right;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-}
-
-.image-replace-btn {
-  border: 1px solid var(--color-border);
-  background: transparent;
-  color: var(--color-text);
-  padding: 6px 10px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
-}
-
-.image-replace-btn:hover:enabled {
+  padding: 40px 20px;
   background: var(--color-hover-bg);
-  border-color: var(--color-text-secondary);
-}
-
-.image-replace-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.image-caption {
-  min-height: 20px;
-  width: 100%;
-  max-width: 520px;
-  text-align: center;
+  border-radius: 8px;
   color: var(--color-text-secondary);
-  outline: none;
 }
 
-.image-caption:empty::before {
-  content: attr(data-placeholder);
-  color: var(--color-text-placeholder);
-  pointer-events: none;
+.image-uploading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ============================================

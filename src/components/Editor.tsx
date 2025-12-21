@@ -12,6 +12,7 @@ import {
 import { PageTitle } from './PageTitle';
 import { FloatingToolbar } from './FloatingToolbar';
 import { BlockRenderer } from './blocks/BlockRenderer';
+import { getImageFromClipboard, uploadToImgBB } from '../utils/imageUpload';
 
 // Color constants
 const TEXT_COLORS = ['default', 'gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const;
@@ -89,6 +90,7 @@ export function Editor() {
         redo,
         convertBlocksToType,
         mergeBlocksIntoSingle,
+        addBlock,
     } = usePage();
     const blocks = page.blocks;
 
@@ -374,7 +376,41 @@ export function Editor() {
             }
         };
 
-        const handlePaste = (e: ClipboardEvent) => {
+        const handlePaste = async (e: ClipboardEvent) => {
+            // Check for clipboard image first
+            if (e.clipboardData) {
+                const imageFile = getImageFromClipboard(e.clipboardData);
+                if (imageFile) {
+                    e.preventDefault();
+
+                    // Create image block immediately with loading state
+                    pushHistory();
+                    const targetId = getInsertionTargetId(e.target);
+                    const newBlockId = addBlock('image', targetId || undefined, true);
+
+                    // Show loading state using a special marker
+                    updateBlock(newBlockId, { imageUrl: '__uploading__' }, true);
+
+                    try {
+                        const imageUrl = await uploadToImgBB(imageFile);
+
+                        // Update with real URL
+                        updateBlock(newBlockId, { imageUrl }, true);
+
+                        // Auto-add paragraph after image and focus it
+                        const paragraphId = addBlock('paragraph', newBlockId, true);
+                        setFocusBlock(paragraphId);
+                    } catch (error) {
+                        console.error('Image upload failed:', error);
+                        // Remove the failed image block
+                        updateBlock(newBlockId, { imageUrl: '' }, true);
+                        alert('Image upload failed. Please try again.');
+                    }
+                    return;
+                }
+            }
+
+            // Handle internal block paste
             const raw = e.clipboardData?.getData(INTERNAL_CLIPBOARD_MIME) || null;
             const payload = parseClipboardPayload(raw);
             if (!payload) return;
