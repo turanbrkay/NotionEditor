@@ -262,19 +262,20 @@ export function Editor() {
             }
 
             // Track starting block for potential drag selection
-            const target = e.target as HTMLElement | null;
-            if (target && e.button === 0) { // Left mouse button
-                const blockId = getClosestBlockId(target);
-                if (blockId) {
-                    dragStartBlockIdRef.current = blockId;
-                    isDraggingRef.current = true;
-                }
+            if (e.button === 0) { // Left mouse button
+                const target = e.target as HTMLElement | null;
+                const blockId = target ? getClosestBlockId(target) : null;
+                // Set drag start if clicking on a block, otherwise leave null for now
+                // (will be set when first entering a block during drag)
+                dragStartBlockIdRef.current = blockId;
+                isDraggingRef.current = true;
             }
         };
 
         const handleMouseMove = (e: MouseEvent) => {
-            if (!isDraggingRef.current || !dragStartBlockIdRef.current || e.buttons !== 1) {
+            if (!isDraggingRef.current || e.buttons !== 1) {
                 isDraggingRef.current = false;
+                dragStartBlockIdRef.current = null;
                 return;
             }
 
@@ -282,9 +283,16 @@ export function Editor() {
             if (!target) return;
 
             const currentBlockId = getClosestBlockId(target);
+            if (!currentBlockId) return;
+
+            // If we started dragging from outside blocks, set first entered block as start
+            if (!dragStartBlockIdRef.current) {
+                dragStartBlockIdRef.current = currentBlockId;
+                return;
+            }
 
             // If mouse has moved to a different block, trigger block selection
-            if (currentBlockId && currentBlockId !== dragStartBlockIdRef.current) {
+            if (currentBlockId !== dragStartBlockIdRef.current) {
                 // Clear native text selection
                 const selection = window.getSelection();
                 selection?.removeAllRanges();
