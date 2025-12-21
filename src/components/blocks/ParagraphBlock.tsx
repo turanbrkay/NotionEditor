@@ -17,7 +17,7 @@ interface ParagraphBlockProps {
 }
 
 export function ParagraphBlock({ block }: ParagraphBlockProps) {
-    const { updateBlock, addBlock, addBlockBefore, deleteBlock, focusPreviousBlock, focusNextBlock, setFocusBlock, escapeToMainLevel } = usePage();
+    const { updateBlock, addBlock, addBlockBefore, deleteBlock, focusPreviousBlock, focusNextBlock, setFocusBlock, escapeToMainLevel, pushHistory } = usePage();
     const contentRef = useBlockFocus(block.id);
     const [showSlashMenu, setShowSlashMenu] = useState(false);
 
@@ -161,7 +161,9 @@ export function ParagraphBlock({ block }: ParagraphBlockProps) {
         const parsed = parsePastedText(text);
         if (parsed.length === 0) return;
         e.preventDefault();
-        handlePasteIntoBlocks(block.id, parsed, { updateBlock, addBlock, setFocusBlock });
+        // Save state before paste for atomic undo
+        pushHistory();
+        handlePasteIntoBlocks(block.id, parsed, { updateBlock, addBlock, setFocusBlock }, true);
     };
 
     return (

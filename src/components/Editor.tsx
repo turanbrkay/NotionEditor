@@ -24,6 +24,9 @@ export function Editor() {
         deleteBlocksById,
         insertBlocksAfter,
         setFocusBlock,
+        pushHistory,
+        undo,
+        redo,
     } = usePage();
     const blocks = page.blocks;
 
@@ -183,6 +186,20 @@ export function Editor() {
         const handleKeyDown = (e: KeyboardEvent) => {
             const meta = e.metaKey || e.ctrlKey;
 
+            // Undo: Ctrl+Z (without Shift)
+            if (meta && !e.shiftKey && e.key.toLowerCase() === 'z') {
+                e.preventDefault();
+                undo();
+                return;
+            }
+
+            // Redo: Ctrl+Shift+Z or Ctrl+Y
+            if ((meta && e.shiftKey && e.key.toLowerCase() === 'z') ||
+                (meta && e.key.toLowerCase() === 'y')) {
+                e.preventDefault();
+                redo();
+                return;
+            }
             if (selectedBlockIds.length > 0) {
                 if (e.key === 'Backspace' || e.key === 'Delete') {
                     e.preventDefault();
@@ -214,7 +231,7 @@ export function Editor() {
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [clearSelectedBlocks, deleteSelectedBlocks, isFullBlockSelection, selectAllBlocks, selectedBlockIds.length]);
+    }, [clearSelectedBlocks, deleteSelectedBlocks, isFullBlockSelection, selectAllBlocks, selectedBlockIds.length, undo, redo]);
 
     useEffect(() => {
         const handleCopy = (e: ClipboardEvent) => {
@@ -240,8 +257,11 @@ export function Editor() {
             if (!payload) return;
             e.preventDefault();
 
+            // Save state before paste for atomic undo
+            pushHistory();
             const targetId = getInsertionTargetId(e.target);
-            const insertedIds = insertBlocksAfter(targetId, payload.blocks);
+            // Pass skipHistory=true since we manually pushed history
+            const insertedIds = insertBlocksAfter(targetId, payload.blocks, true);
             clearSelectedBlocks();
             if (insertedIds.length > 0) {
                 setFocusBlock(insertedIds[0]);
@@ -328,6 +348,7 @@ export function Editor() {
         deleteSelectedBlocks,
         getInsertionTargetId,
         insertBlocksAfter,
+        pushHistory,
         selectBlockRangeByIds,
         selectedBlockIds.length,
         setFocusBlock,

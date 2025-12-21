@@ -10,7 +10,7 @@ interface CalloutBlockProps {
 }
 
 export function CalloutBlock({ block }: CalloutBlockProps) {
-    const { updateBlock, addBlock, deleteBlock, focusPreviousBlock, focusNextBlock, focusBlockId, clearFocusBlock, setFocusBlock } = usePage();
+    const { updateBlock, addBlock, deleteBlock, focusPreviousBlock, focusNextBlock, focusBlockId, clearFocusBlock, setFocusBlock, pushHistory } = usePage();
     const contentRef = useRef<HTMLDivElement>(null);
     const icon = block.icon || '💡';
 
@@ -48,7 +48,8 @@ export function CalloutBlock({ block }: CalloutBlockProps) {
         const parsed = parsePastedText(text);
         if (parsed.length === 0) return;
         e.preventDefault();
-        handlePasteIntoBlocks(block.id, parsed, { updateBlock, addBlock, setFocusBlock: () => {} });
+        pushHistory();
+        handlePasteIntoBlocks(block.id, parsed, { updateBlock, addBlock, setFocusBlock: () => { } }, true);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {

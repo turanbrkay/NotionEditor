@@ -24,7 +24,7 @@ function getToggleHeadingLevel(type: ToggleBlockType): 1 | 2 | 3 | null {
 }
 
 export function ToggleBlock({ block }: ToggleBlockProps) {
-    const { updateBlock, toggleCollapse, addChildBlock, deleteBlock, focusBlockId, clearFocusBlock, focusPreviousBlock, focusNextBlock, escapeToMainLevel, addBlock, setFocusBlock } = usePage();
+    const { updateBlock, toggleCollapse, addChildBlock, deleteBlock, focusBlockId, clearFocusBlock, focusPreviousBlock, focusNextBlock, escapeToMainLevel, addBlock, setFocusBlock, pushHistory } = usePage();
     const contentRef = useRef<HTMLDivElement>(null);
     const headingLevel = getToggleHeadingLevel(block.type as ToggleBlockType);
     const isExpanded = !block.collapsed;
@@ -65,7 +65,8 @@ export function ToggleBlock({ block }: ToggleBlockProps) {
         const parsed = parsePastedText(text);
         if (parsed.length === 0) return;
         e.preventDefault();
-        handlePasteIntoBlocks(block.id, parsed, { updateBlock, addBlock, setFocusBlock });
+        pushHistory();
+        handlePasteIntoBlocks(block.id, parsed, { updateBlock, addBlock, setFocusBlock }, true);
     };
 
     const handleToggle = () => {
@@ -144,7 +145,7 @@ export function ToggleBlock({ block }: ToggleBlockProps) {
                     ref={contentRef}
                     className="toggle-content"
                     contentEditable
-                spellCheck={false}
+                    spellCheck={false}
                     suppressContentEditableWarning
                     onInput={handleInput}
                     onKeyDown={handleKeyDown}

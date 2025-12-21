@@ -4,6 +4,7 @@ import React, {
     useContext,
     useEffect,
     useMemo,
+    useRef,
     useState,
 } from 'react';
 import { v4 as uuidv4 } from 'uuid';
@@ -18,6 +19,8 @@ import type { WorkspaceState } from '../utils/storage';
 
 const DEFAULT_TITLE = 'Untitled';
 const SAVE_DEBOUNCE_MS = 300;
+const HISTORY_LIMIT = 50;
+const HISTORY_DEBOUNCE_MS = 500; // Group rapid changes into single undo
 
 // ============================================
 // Context Types
@@ -43,12 +46,12 @@ interface PageContextValue {
     // Page operations
     setTitle: (title: string) => void;
     // Block CRUD
-    addBlock: (type: BlockType, afterId?: string) => string;
+    addBlock: (type: BlockType, afterId?: string, skipHistory?: boolean) => string;
     addBlockBefore: (type: BlockType, beforeId: string) => string;
-    updateBlock: (id: string, updates: Partial<EditorBlock>) => void;
+    updateBlock: (id: string, updates: Partial<EditorBlock>, skipHistory?: boolean) => void;
     deleteBlock: (id: string) => void;
     deleteBlocksById: (ids: string[]) => void;
-    insertBlocksAfter: (targetId: string | null, blocks: EditorBlock[]) => string[];
+    insertBlocksAfter: (targetId: string | null, blocks: EditorBlock[], skipHistory?: boolean) => string[];
     // Block reordering
     moveBlockUp: (id: string) => void;
     moveBlockDown: (id: string) => void;
@@ -61,6 +64,12 @@ interface PageContextValue {
     // Navigation
     focusPreviousBlock: (currentId: string) => void;
     focusNextBlock: (currentId: string) => void;
+    // Undo/Redo
+    pushHistory: () => void;
+    undo: () => void;
+    redo: () => void;
+    canUndo: boolean;
+    canRedo: boolean;
 }
 
 // ============================================
@@ -433,6 +442,21 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
     const [selectedBlockIds, setSelectedBlockIds] = useState<string[]>([]);
     const [selectionAnchorId, setSelectionAnchorId] = useState<string | null>(null);
 
+    // Track last history save time for debouncing typing
+    const lastHistorySaveRef = useRef<number>(0);
+
+    // History stacks keyed by page ID - includes cursor position
+    interface HistoryEntry {
+        page: Page;
+        cursorInfo?: {
+            blockId: string | null;
+            offset: number;
+        };
+    }
+    const [historyState, setHistoryState] = useState<{
+        [pageId: string]: { undoStack: HistoryEntry[]; redoStack: HistoryEntry[] };
+    }>({});
+
     const clearFocusBlock = useCallback(() => {
         setFocusBlockId(null);
         setFocusPosition(null);
@@ -474,17 +498,91 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
     }, [workspace]);
 
     const updateCurrentPage = useCallback(
-        (updater: (page: Page) => Page) => {
+        (updater: (page: Page) => Page, skipHistory = false) => {
             setWorkspace((ws) => {
                 const idx = ws.pages.findIndex((p) => p.id === ws.currentPageId);
                 if (idx === -1) return ws;
+                const currentPage = ws.pages[idx];
+
+                // Auto-push to history before making changes (unless skipping)
+                // Use debounce to group rapid changes (like typing) into single undo
+                if (!skipHistory) {
+                    const now = Date.now();
+                    const timeSinceLastSave = now - lastHistorySaveRef.current;
+
+                    // Only save if enough time has passed since last save
+                    if (timeSinceLastSave >= HISTORY_DEBOUNCE_MS) {
+                        lastHistorySaveRef.current = now;
+
+                        const cursorInfo = (() => {
+                            const selection = window.getSelection();
+                            if (!selection || selection.rangeCount === 0) {
+                                return { blockId: null, offset: 0 };
+                            }
+                            const range = selection.getRangeAt(0);
+                            const node = range.startContainer;
+                            const element = node instanceof HTMLElement ? node : node.parentElement;
+                            const blockWrapper = element?.closest('[data-block-id]');
+                            const blockId = blockWrapper?.getAttribute('data-block-id') || null;
+                            return { blockId, offset: range.startOffset };
+                        })();
+
+                        setHistoryState((prev) => {
+                            const pageHistory = prev[currentPage.id] || { undoStack: [], redoStack: [] };
+                            const entry: HistoryEntry = { page: currentPage, cursorInfo };
+                            const newUndoStack = [...pageHistory.undoStack, entry].slice(-HISTORY_LIMIT);
+                            return {
+                                ...prev,
+                                [currentPage.id]: {
+                                    undoStack: newUndoStack,
+                                    redoStack: [], // Clear redo stack on new action
+                                },
+                            };
+                        });
+                    }
+                }
+
                 const nextPages = [...ws.pages];
-                nextPages[idx] = updater(ws.pages[idx]);
+                nextPages[idx] = updater(currentPage);
                 return { ...ws, pages: nextPages };
             });
         },
         []
     );
+
+    // Helper to get current cursor position from DOM
+    const getCursorInfo = useCallback((): { blockId: string | null; offset: number } => {
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) {
+            return { blockId: null, offset: 0 };
+        }
+        const range = selection.getRangeAt(0);
+        const node = range.startContainer;
+        const element = node instanceof HTMLElement ? node : node.parentElement;
+        const blockWrapper = element?.closest('[data-block-id]');
+        const blockId = blockWrapper?.getAttribute('data-block-id') || null;
+        return { blockId, offset: range.startOffset };
+    }, []);
+
+    // Save current state to history (call this BEFORE making changes)
+    const pushHistory = useCallback(() => {
+        // Reset debounce timer since we're explicitly saving
+        lastHistorySaveRef.current = Date.now();
+
+        const cursorInfo = getCursorInfo();
+        setHistoryState((prev) => {
+            const pageHistory = prev[currentPage.id] || { undoStack: [], redoStack: [] };
+            const entry: HistoryEntry = { page: currentPage, cursorInfo };
+            const newUndoStack = [...pageHistory.undoStack, entry].slice(-HISTORY_LIMIT);
+            return {
+                ...prev,
+                [currentPage.id]: {
+                    undoStack: newUndoStack,
+                    redoStack: [], // Clear redo stack on new action
+                },
+            };
+        });
+    }, [currentPage, getCursorInfo]);
 
     const selectBlockRange = useCallback((targetId: string) => {
         const order = flattenBlocks(currentPage.blocks).map((b) => b.id);
@@ -571,9 +669,9 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
         updateCurrentPage((p) => pageReducer(p, { type: 'SET_TITLE', payload: title }));
     }, [updateCurrentPage]);
 
-    const addBlock = useCallback((type: BlockType, afterId?: string): string => {
+    const addBlock = useCallback((type: BlockType, afterId?: string, skipHistory = false): string => {
         const block = createBlock(type);
-        updateCurrentPage((p) => pageReducer(p, { type: 'ADD_BLOCK', payload: { block, afterId } }));
+        updateCurrentPage((p) => pageReducer(p, { type: 'ADD_BLOCK', payload: { block, afterId } }), skipHistory);
         setFocusBlockId(block.id);
         return block.id;
     }, [updateCurrentPage]);
@@ -585,8 +683,8 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
         return block.id;
     }, [updateCurrentPage]);
 
-    const updateBlock = useCallback((id: string, updates: Partial<EditorBlock>) => {
-        updateCurrentPage((p) => pageReducer(p, { type: 'UPDATE_BLOCK', payload: { id, updates } }));
+    const updateBlock = useCallback((id: string, updates: Partial<EditorBlock>, skipHistory = false) => {
+        updateCurrentPage((p) => pageReducer(p, { type: 'UPDATE_BLOCK', payload: { id, updates } }), skipHistory);
     }, [updateCurrentPage]);
 
     const deleteBlock = useCallback((id: string) => {
@@ -625,13 +723,13 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
         }
     }, [clearSelectedBlocks, currentPage.blocks, updateCurrentPage]);
 
-    const insertBlocksAfter = useCallback((targetId: string | null, blocksToInsert: EditorBlock[]): string[] => {
+    const insertBlocksAfter = useCallback((targetId: string | null, blocksToInsert: EditorBlock[], skipHistory = false): string[] => {
         if (blocksToInsert.length === 0) return [];
         const clones = blocksToInsert.map(cloneBlockWithNewIds);
         updateCurrentPage((p) => ({
             ...p,
             blocks: insertBlocksAfterInTree(p.blocks, targetId, clones),
-        }));
+        }), skipHistory);
         return clones.map((b) => b.id);
     }, [updateCurrentPage]);
 
@@ -685,6 +783,113 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
         }
     }, [currentPage.blocks, updateCurrentPage]);
 
+    // Undo/Redo computed values
+    const currentPageHistory = historyState[currentPage.id] || { undoStack: [], redoStack: [] };
+    const canUndo = currentPageHistory.undoStack.length > 0;
+    const canRedo = currentPageHistory.redoStack.length > 0;
+
+    const undo = useCallback(() => {
+        const pageHistory = historyState[currentPage.id];
+        if (!pageHistory || pageHistory.undoStack.length === 0) return;
+
+        const undoStack = [...pageHistory.undoStack];
+        const previousEntry = undoStack.pop()!;
+
+        // Capture current cursor before making changes
+        const currentCursor = getCursorInfo();
+
+        // Push current state to redo stack
+        const currentEntry: HistoryEntry = { page: currentPage, cursorInfo: currentCursor };
+        setHistoryState((prev) => ({
+            ...prev,
+            [currentPage.id]: {
+                undoStack,
+                redoStack: [...pageHistory.redoStack, currentEntry],
+            },
+        }));
+
+        // Apply the previous state (skip history to avoid double-push)
+        updateCurrentPage(() => previousEntry.page, true);
+
+        // Restore cursor position after a microtask (wait for DOM update)
+        if (previousEntry.cursorInfo?.blockId) {
+            setTimeout(() => {
+                const blockEl = document.querySelector(
+                    `[data-block-id="${previousEntry.cursorInfo!.blockId}"] [contenteditable="true"]`
+                );
+                if (blockEl) {
+                    const range = document.createRange();
+                    const sel = window.getSelection();
+                    const textNode = blockEl.firstChild;
+                    if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+                        const offset = Math.min(previousEntry.cursorInfo!.offset, textNode.textContent?.length || 0);
+                        range.setStart(textNode, offset);
+                        range.collapse(true);
+                        sel?.removeAllRanges();
+                        sel?.addRange(range);
+                    } else {
+                        range.selectNodeContents(blockEl);
+                        range.collapse(true);
+                        sel?.removeAllRanges();
+                        sel?.addRange(range);
+                    }
+                    (blockEl as HTMLElement).focus();
+                }
+            }, 0);
+        }
+    }, [currentPage, historyState, updateCurrentPage, getCursorInfo]);
+
+    const redo = useCallback(() => {
+        const pageHistory = historyState[currentPage.id];
+        if (!pageHistory || pageHistory.redoStack.length === 0) return;
+
+        const redoStack = [...pageHistory.redoStack];
+        const nextEntry = redoStack.pop()!;
+
+        // Capture current cursor before making changes
+        const currentCursor = getCursorInfo();
+
+        // Push current state to undo stack
+        const currentEntry: HistoryEntry = { page: currentPage, cursorInfo: currentCursor };
+        setHistoryState((prev) => ({
+            ...prev,
+            [currentPage.id]: {
+                undoStack: [...pageHistory.undoStack, currentEntry],
+                redoStack,
+            },
+        }));
+
+        // Apply the next state (skip history to avoid double-push)
+        updateCurrentPage(() => nextEntry.page, true);
+
+        // Restore cursor position after a microtask (wait for DOM update)
+        if (nextEntry.cursorInfo?.blockId) {
+            setTimeout(() => {
+                const blockEl = document.querySelector(
+                    `[data-block-id="${nextEntry.cursorInfo!.blockId}"] [contenteditable="true"]`
+                );
+                if (blockEl) {
+                    const range = document.createRange();
+                    const sel = window.getSelection();
+                    const textNode = blockEl.firstChild;
+                    if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+                        const offset = Math.min(nextEntry.cursorInfo!.offset, textNode.textContent?.length || 0);
+                        range.setStart(textNode, offset);
+                        range.collapse(true);
+                        sel?.removeAllRanges();
+                        sel?.addRange(range);
+                    } else {
+                        range.selectNodeContents(blockEl);
+                        range.collapse(true);
+                        sel?.removeAllRanges();
+                        sel?.addRange(range);
+                    }
+                    (blockEl as HTMLElement).focus();
+                }
+            }, 0);
+        }
+    }, [currentPage, historyState, updateCurrentPage, getCursorInfo]);
+
     const value = useMemo<PageContextValue>(
         () => ({
             pages: workspace.pages,
@@ -717,6 +922,11 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
             escapeToMainLevel,
             focusPreviousBlock,
             focusNextBlock,
+            pushHistory,
+            undo,
+            redo,
+            canUndo,
+            canRedo,
         }),
         [
             workspace.pages,
@@ -748,6 +958,11 @@ export function PageProvider({ children }: { children: React.ReactNode }) {
             escapeToMainLevel,
             focusPreviousBlock,
             focusNextBlock,
+            pushHistory,
+            undo,
+            redo,
+            canUndo,
+            canRedo,
         ]
     );
 

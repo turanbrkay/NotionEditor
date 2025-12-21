@@ -10,7 +10,7 @@ interface QuoteBlockProps {
 }
 
 export function QuoteBlock({ block }: QuoteBlockProps) {
-    const { updateBlock, addBlock, deleteBlock, focusPreviousBlock, focusNextBlock, focusBlockId, clearFocusBlock, setFocusBlock } = usePage();
+    const { updateBlock, addBlock, deleteBlock, focusPreviousBlock, focusNextBlock, focusBlockId, clearFocusBlock, setFocusBlock, pushHistory } = usePage();
     const contentRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -47,7 +47,8 @@ export function QuoteBlock({ block }: QuoteBlockProps) {
         const parsed = parsePastedText(text);
         if (parsed.length === 0) return;
         e.preventDefault();
-        handlePasteIntoBlocks(block.id, parsed, { updateBlock, addBlock, setFocusBlock: () => {} });
+        pushHistory();
+        handlePasteIntoBlocks(block.id, parsed, { updateBlock, addBlock, setFocusBlock: () => { } }, true);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {

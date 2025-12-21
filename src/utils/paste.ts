@@ -207,10 +207,11 @@ export function handlePasteIntoBlocks(
     currentBlockId: string,
     parsed: ParsedBlock[],
     opts: {
-        updateBlock: (id: string, updates: Partial<EditorBlock>) => void;
-        addBlock: (type: BlockType, afterId?: string) => string;
+        updateBlock: (id: string, updates: Partial<EditorBlock>, skipHistory?: boolean) => void;
+        addBlock: (type: BlockType, afterId?: string, skipHistory?: boolean) => string;
         setFocusBlock: (id: string) => void;
-    }
+    },
+    skipHistory = false
 ): void {
     if (parsed.length === 0) return;
     const [first, ...rest] = parsed;
@@ -224,11 +225,11 @@ export function handlePasteIntoBlocks(
         icon: first.icon,
         children: first.children,
     };
-    opts.updateBlock(currentBlockId, baseUpdate);
+    opts.updateBlock(currentBlockId, baseUpdate, skipHistory);
 
     let lastId = currentBlockId;
     rest.forEach((blk) => {
-        const newId = opts.addBlock(blk.type, lastId);
+        const newId = opts.addBlock(blk.type, lastId, skipHistory);
         opts.updateBlock(newId, {
             type: blk.type,
             rich_text: blk.rich_text,
@@ -237,7 +238,7 @@ export function handlePasteIntoBlocks(
             language: blk.language,
             icon: blk.icon,
             children: blk.children,
-        });
+        }, skipHistory);
         lastId = newId;
     });
 

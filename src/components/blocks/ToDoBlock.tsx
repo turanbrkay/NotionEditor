@@ -10,7 +10,7 @@ interface ToDoBlockProps {
 }
 
 export function ToDoBlock({ block }: ToDoBlockProps) {
-    const { updateBlock, addBlock, addBlockBefore, deleteBlock, focusPreviousBlock, focusNextBlock, setFocusBlock } = usePage();
+    const { updateBlock, addBlock, addBlockBefore, deleteBlock, focusPreviousBlock, focusNextBlock, setFocusBlock, pushHistory } = usePage();
     const contentRef = useBlockFocus(block.id);
     const isChecked = block.checked ?? false;
 
@@ -35,7 +35,8 @@ export function ToDoBlock({ block }: ToDoBlockProps) {
         const parsed = parsePastedText(text);
         if (parsed.length === 0) return;
         e.preventDefault();
-        handlePasteIntoBlocks(block.id, parsed, { updateBlock, addBlock, setFocusBlock: () => {} });
+        pushHistory();
+        handlePasteIntoBlocks(block.id, parsed, { updateBlock, addBlock, setFocusBlock: () => { } }, true);
     };
 
     const handleCheckboxChange = () => {

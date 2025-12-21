@@ -21,7 +21,7 @@ function getHeadingLevel(type: HeadingBlockType): 1 | 2 | 3 {
 }
 
 export function HeadingBlock({ block }: HeadingBlockProps) {
-    const { updateBlock, addBlock, addBlockBefore, deleteBlock, focusPreviousBlock, focusNextBlock, setFocusBlock } = usePage();
+    const { updateBlock, addBlock, addBlockBefore, deleteBlock, focusPreviousBlock, focusNextBlock, setFocusBlock, pushHistory } = usePage();
     const contentRef = useBlockFocus(block.id);
     const level = getHeadingLevel(block.type as HeadingBlockType);
 
@@ -46,7 +46,8 @@ export function HeadingBlock({ block }: HeadingBlockProps) {
         const parsed = parsePastedText(text);
         if (parsed.length === 0) return;
         e.preventDefault();
-        handlePasteIntoBlocks(block.id, parsed, { updateBlock, addBlock, setFocusBlock: () => {} });
+        pushHistory();
+        handlePasteIntoBlocks(block.id, parsed, { updateBlock, addBlock, setFocusBlock: () => { } }, true);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {

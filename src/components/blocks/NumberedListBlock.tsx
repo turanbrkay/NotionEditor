@@ -11,7 +11,7 @@ interface NumberedListBlockProps {
 }
 
 export function NumberedListBlock({ block, displayNumber }: NumberedListBlockProps) {
-    const { updateBlock, addBlock, addBlockBefore, deleteBlock, focusPreviousBlock, focusNextBlock, setFocusBlock } = usePage();
+    const { updateBlock, addBlock, addBlockBefore, deleteBlock, focusPreviousBlock, focusNextBlock, setFocusBlock, pushHistory } = usePage();
     const contentRef = useBlockFocus(block.id);
 
     useEffect(() => {
@@ -35,7 +35,8 @@ export function NumberedListBlock({ block, displayNumber }: NumberedListBlockPro
         const parsed = parsePastedText(text);
         if (parsed.length === 0) return;
         e.preventDefault();
-        handlePasteIntoBlocks(block.id, parsed, { updateBlock, addBlock, setFocusBlock: () => {} });
+        pushHistory();
+        handlePasteIntoBlocks(block.id, parsed, { updateBlock, addBlock, setFocusBlock: () => { } }, true);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
