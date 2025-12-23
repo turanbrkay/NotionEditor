@@ -1,3 +1,6 @@
+BURADA KENDİ EDİTORUMUZDEN KOPY PASTE YAPAMIYORUZ DÜZELT
+
+
 # Notion-like Offline Editor (React + TypeScript + Vite)
 
 Local-only, block-based editor that exports Notion-compatible JSON. Vite is configured with `base: './'` so the bundled app runs directly from `file://` with no server.
